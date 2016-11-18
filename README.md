@@ -2,7 +2,7 @@
 Frequent subgraph mining Tool using gSpan algorithm in a parallel manner
 
 
-### III.II. Download and setup
+### Download and setup
 
 ```shell
 #git clone
@@ -15,9 +15,16 @@ make all
 ### Input Format:
 
 (line of comment in the format: # (comment))
+
+
 (transaction header in the format: t (comment))
+
+
 (nodes and labels for each of the nodes in the format: v (node id) (label number))
+
+
 (edges in the format: e (source node id) (target node id) (label number))
+
 
 ```shell
 An example is:
@@ -26,7 +33,7 @@ t # 1        (transactionid is 1)
 v 0 1        (label of node 1 is 1)
 v 1 2        (label of node 2 is 2)
 e 0 1 3      (edge from node 1 to node 2, with label 3)
-```shell
+```
 
 ### Usage:
 ```shell
