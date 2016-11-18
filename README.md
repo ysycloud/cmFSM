@@ -16,18 +16,14 @@ make all
 
 (line of comment in the format: # (comment))
 
-
 (transaction header in the format: t (comment))
 
-
 (nodes and labels for each of the nodes in the format: v (node id) (label number))
-
 
 (edges in the format: e (source node id) (target node id) (label number))
 
 An example is:
 ```shell
-
 # start
 t # 1        (transactionid is 1)
 v 0 1        (label of node 1 is 1)
@@ -57,11 +53,11 @@ the output at command line of the example above:
 loading file time: 0.010000 seconds
 340 graphs with minSup = 34
 single_vertex_graph_num: 16
-prework for mining frequenct subgraph spend: 0.030000 seconds
+prework for mining frequenct subgraph spend: 0.020000 seconds
 single_edge_graph_num: 23
-Mining frequenct subgraph spend: 1.710000 seconds
+Mining frequenct subgraph spend: 0.480000 seconds
 Found 860 frequent subgraphs
-output mining results time: 0.030000 seconds
+output mining results time: 0.010000 seconds
 ```
 
 the results written in file of the example above:
