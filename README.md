@@ -25,9 +25,9 @@ make all
 
 (edges in the format: e (source node id) (target node id) (label number))
 
-
-```shell
 An example is:
+```shell
+
 # start
 t # 1        (transactionid is 1)
 v 0 1        (label of node 1 is 1)
