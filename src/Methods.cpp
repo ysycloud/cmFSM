@@ -39,13 +39,10 @@ void split_data_circle(int size, int n, int my_rank, int* index, int* local_n)
 	if(size<=n)
 	{
 		*local_n = 1;
-		index = new int[1];
 		index[0] = my_rank;
 	}
 	else
 	{
-		*local_n = (size-my_rank)/n+1; 
-		index = new int[*local_n];
 		int step1 = 2*(n-my_rank)-1;
 		int step2 = 2*my_rank+1;
 		int count=0;
@@ -55,13 +52,14 @@ void split_data_circle(int size, int n, int my_rank, int* index, int* local_n)
 			count++;
 			index[count] = index[count-1]+step1;
 			if(index[count]>=size)
-				return;
+				break;
 			else
 			{
 				count++;
 				index[count] = index[count-1]+step2;
 			}				
 		}
+		*local_n = count;
 	}
 }
 

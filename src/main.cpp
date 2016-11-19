@@ -451,8 +451,6 @@ int main(int argc, char **argv)
 	clk = clock(); 
 	
 	// use frequenct 1-edge graph to submining
-//	int per = max_node_label/p;
-//	for (int x = my_rank*per; x <= (my_rank+1)*per; ++x)
 	vector<Edge> single_edge_graph;
 	for (int x = 0; x <= max_node_label; ++x)
 	{  
@@ -472,8 +470,9 @@ int main(int argc, char **argv)
 	if(my_rank==0)
 		printf("single_edge_graph_num: %d\n", single_edge_graph.size());
 	
+	/*
 	int begin,end,local_n;
-	//divide the data equally
+	//divide the data
 	split_data_increment(single_edge_graph.size(), p, my_rank, &begin, &end, &local_n);	
 	for(int i=begin; i<end ; i++)
 	{
@@ -482,6 +481,31 @@ int main(int argc, char **argv)
 		{
 			GraphCode gc;
 			Edge e = single_edge_graph[i];
+			gc.seq.push_back(&e);
+			for (int i = 0; i < nr_graph; ++i)  
+				if (GS[i].hasEdge(e.x, e.a, e.y))  
+					gc.gs.push_back(i);  
+
+			subgraph_mining(gc, 2);
+				
+			// GS <- GS - e 
+			for (int j = 0; j < nr_graph; j++)  
+				GS[j].removeEdge(e.x, e.a, e.y); 
+		}
+	}
+	*/
+	
+	int* index = new int[single_edge_graph.size()/p+1];
+	int local_n;
+	//divide the data circle
+	split_data_circle(single_edge_graph.size(), p, my_rank, index, &local_n);	
+	for(int i=0; i<local_n ; i++)
+	{
+		//make sure won't over the vector limit when processes are too much
+		if( index[i]<single_edge_graph.size() )
+		{
+			GraphCode gc;
+			Edge e = single_edge_graph[index[i]];
 			gc.seq.push_back(&e);
 			for (int i = 0; i < nr_graph; ++i)  
 				if (GS[i].hasEdge(e.x, e.a, e.y))  
