@@ -34,6 +34,37 @@ void split_data_single(int size, int n, int my_rank, int* begin, int* end, int* 
 	*local_n = 1;
 }
 
+void split_data_circle(int size, int n, int my_rank, int* index, int* local_n)
+{
+	if(size<=n)
+	{
+		*local_n = 1;
+		index = new int[1];
+		index[0] = my_rank;
+	}
+	else
+	{
+		*local_n = (size-my_rank)/n+1; 
+		index = new int[*local_n];
+		int step1 = 2*(n-my_rank)-1;
+		int step2 = 2*my_rank+1;
+		int count=0;
+		index[count] = my_rank;
+		while(index[count]<size)
+		{
+			count++;
+			index[count] = index[count-1]+step1;
+			if(index[count]>=size)
+				return;
+			else
+			{
+				count++;
+				index[count] = index[count-1]+step2;
+			}				
+		}
+	}
+}
+
 void subgraph_mining(GraphCode &gc, int next)
 {  
     /* construct graph from DFS code */  
@@ -64,6 +95,7 @@ void subgraph_mining(GraphCode &gc, int next)
         return;  
     }  
   
+//	g->gs = gc.gs;	  //final line’s swap operation will finish this work
     S.push_back(g);   //add a new result(frequent subgraph) 
   
     /* enumerate potential children with 1-edge growth */  
@@ -88,10 +120,10 @@ void subgraph_mining(GraphCode &gc, int next)
         child_gc.gs.swap(spp);  
         child_gc.seq = s;  
         child_gc.seq.push_back(e);  //get the correct extend and carry out the next submining
-        if (e->iy == next)  
+        if (e->iy == next)   //vextex add, backward extension, continue to next level
             subgraph_mining(child_gc, next + 1);  
-        else  
-            subgraph_mining(child_gc, next);  
+        else  //vextex invariant, forward extension, continue to next level
+            subgraph_mining(child_gc, next);   
     }  
   
     g->gs.swap(gc.gs);  
