@@ -32,7 +32,7 @@ const char *USAGE =
 "    -i --input: input file of graph set information. \n"
 "    -o --output: the output file of frequent subgraph results. \n"
 "    -d --division: the division strategy among processes[default:2] \n"
-"    	0: equality; 1: single; 2: increment; 3: circle \n";
+"    	0: equality; 1: single; 2: increment; 3: circle. \n";
 
 void Usage()
 {
