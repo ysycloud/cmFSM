@@ -94,6 +94,7 @@ void subgraph_mining(GraphCode &gc, int next)
     }  
   
 //	g->gs = gc.gs;	  //final line’s swap operation will finish this work
+	#pragma omp critical
     S.push_back(g);   //add a new result(frequent subgraph) 
   
     /* enumerate potential children with 1-edge growth */  
@@ -125,4 +126,122 @@ void subgraph_mining(GraphCode &gc, int next)
     }  
   
     g->gs.swap(gc.gs);  
-}  
+} 
+
+
+void one_edge_expansion(GraphCode &gc, int next, vector<GraphCode> &child_gcs, vector<int> &nexts)
+{  
+    /* construct graph from DFS code */  
+    Graph *g = new Graph;  
+    vector<const Edge *> &s = gc.seq;  
+    g->node_label.resize(next);  
+    g->edge_label = new vector<int>[next];  
+    g->edge_next = new vector<int>[next];  
+    for (size_t i = 0; i < s.size(); ++i)  
+    {  
+        int ix = s[i]->ix, iy = s[i]->iy, a = s[i]->a;  
+        g->node_label[ix] = s[i]->x;  
+        g->node_label[iy] = s[i]->y;  
+        g->edge_label[ix].push_back(a);  
+        g->edge_label[iy].push_back(a);  
+        g->edge_next[ix].push_back(iy);  
+        g->edge_next[iy].push_back(ix);  
+    }  
+  
+    /* minimum DFS code pruning stage (4) */  
+    Traveler t(s, *g);  
+    t.travel();  
+    if (!t.isMin())  
+    {  
+        delete[] g->edge_label;  
+        delete[] g->edge_next;  
+        delete g; 
+        return;  
+    }  
+  
+//	g->gs = gc.gs;	  //final line’s swap operation will finish this work，this will be work because g is a point.
+	#pragma omp critical
+    S.push_back(g);   //add a new result(frequent subgraph) 
+  
+    /* enumerate potential children with 1-edge growth */  
+    map<Edge, vector<int> > m;  
+    for (size_t i = 0; i < gc.gs.size(); ++i)  
+    {  
+        set<Edge> c;  
+        SubTraveler st(s, GS[gc.gs[i]], c, min_support, EF);  
+        st.travel(next);  
+        for (set<Edge>::const_iterator j = c.begin(); j != c.end(); ++j)  
+            m[*j].push_back(gc.gs[i]);    //get the map(edge:gs) for every child's frequency
+    }  
+  
+    /* mining subgraph children */  
+    for (map<Edge, vector<int> >::iterator i = m.begin(); i != m.end(); ++i)  
+    {  
+        const Edge *e = &i->first;  
+        vector<int> &spp = i->second;   //gs for current extension
+        if ((int)spp.size() < min_support)  
+            continue;  
+        GraphCode child_gc;  
+        child_gc.gs.swap(spp);  
+        child_gc.seq = s;  
+        child_gc.seq.push_back(e);  //get the correct extend and carry out the next submining
+        
+		child_gcs.push_back(child_gc);
+		if (e->iy == next)   //vextex add, backward extension, continue to next level
+			nexts.push_back(next+1);
+        else  //vextex invariant, forward extension, continue to next level
+            nexts.push_back(next);   
+    } 
+    g->gs.swap(gc.gs);  
+}   
+
+void freqGraphMining(GraphCode &gc, int next)
+{
+	vector<GraphCode> current_global_child_gcs;
+	vector<int> current_global_nexts;
+	vector<GraphCode> tmp_current_global_child_gcs;
+	vector<int> tmp_current_global_nexts;
+	
+	printf("asdasda1\n");
+	
+	//first expansion to get the children set
+	one_edge_expansion(gc, next, current_global_child_gcs, current_global_nexts);
+	
+	printf("asdasda2\n");
+	
+	int len =  current_global_child_gcs.size();
+	
+	//submining per level
+	while(len != 0)
+	{
+		vector<GraphCode> local_child_gcs;
+		vector<int> local_nexts;
+		
+		printf("asdasda3\n");
+		
+		for(int i=0; i<len; i++)
+		{
+			//carry out current child's one edge expansion
+			one_edge_expansion(current_global_child_gcs[i], current_global_nexts[i], local_child_gcs, local_nexts);
+			
+			//add the current child's expansion to tmp result
+			tmp_current_global_child_gcs.insert(tmp_current_global_child_gcs.end(), local_child_gcs.begin(), local_child_gcs.end());
+			tmp_current_global_nexts.insert(tmp_current_global_nexts.end(), local_nexts.begin(), local_nexts.end());
+			
+			//clear current child's expansion to carry out the next child's expansion
+			local_child_gcs.clear();
+			local_nexts.clear();
+		}
+		
+		//swap global results and tmp global results to get the new global results
+		current_global_child_gcs.swap(tmp_current_global_child_gcs);
+		current_global_nexts.swap(tmp_current_global_nexts);
+		
+		//clear tmp global results to carry out the next level mining
+		tmp_current_global_child_gcs.clear();
+		tmp_current_global_nexts.clear();
+		
+		//get the size of global results to judge whether continue next level mining
+		len = current_global_child_gcs.size();
+	}	
+}

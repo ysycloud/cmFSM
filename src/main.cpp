@@ -13,7 +13,6 @@
 #include "Global.h"
 #include "Methods.h"
 #include "mpi.h"
-#include <omp.h>
    
 using namespace std;  
 
@@ -521,6 +520,7 @@ int main(int argc, char **argv)
 		}
 	}
 	
+	// using different division strategy to mine frequent subgraph
 	if(division_way>=0&&division_way<=2)
 	{
 		int begin,end,local_n;
@@ -604,7 +604,7 @@ int main(int argc, char **argv)
         fprintf(fp, "frequent number: %d\n", (int)g.gs.size());  
 		fprintf(fp, "oringal dataset graph list where it appeared:\n");  
         for (size_t j = 0; j < g.gs.size(); ++j)  
-            fprintf(fp, " %d", g.gs[j]);  
+            fprintf(fp, " %d", g.gs[j]); 
         fprintf(fp, "\n"); 
 		fprintf(fp, "node list:\n"); 		
         for (size_t j = 0; j < g.node_label.size(); ++j)  
