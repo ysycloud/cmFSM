@@ -7,7 +7,7 @@ void Traveler::DFS(vector<int> &v, int c, int next)
 	vector<int> bak; 
 	while (!v.empty())  
 	{  
-		bool flag = false;  
+		bool flag = false;
 		int x = v.back();  
 		for (size_t i = 0; i < g.edge_next[x].size(); ++i)  
 		{  
@@ -43,7 +43,7 @@ void Traveler::DFS(vector<int> &v, int c, int next)
 				if (*s[c] < e) continue;  
 				if (e < *s[c])  
 				{  
-					is_min = false;  
+					is_min = false; 
 					return;  
 				}  
 				f[x][y] = true;  

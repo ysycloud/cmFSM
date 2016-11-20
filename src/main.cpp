@@ -30,7 +30,9 @@ const char *USAGE =
 "\n"
 "  input/output options: \n"
 "    -i --input: input file of graph set information. \n"
-"    -o --output: the output file of frequent subgraph results. \n";
+"    -o --output: the output file of frequent subgraph results. \n"
+"    -d --division: the division strategy among processes[default:2] \n"
+"    	0: equality; 1: single; 2: increment; 3: circle \n";
 
 void Usage()
 {
@@ -75,6 +77,7 @@ int main(int argc, char **argv)
     /* parse command line options */
 	// Unset flags (value -1).
 	float min_Support_Rate = -1;
+	int division_way = -1;
     // Unset options (value 'UNSET').
 	char * const UNSET = "unset";
     char * input = UNSET;
@@ -93,10 +96,11 @@ int main(int argc, char **argv)
 			{"input",           required_argument,        0, 'i'},
 			{"output",          required_argument,        0, 'o'},
 			{"support",         required_argument,        0, 's'},
+			{"division",        required_argument,        0, 'd'},
 			{0, 0, 0, 0}
 		};
 
-		c = getopt_long(argc, argv, "i:o:s:",
+		c = getopt_long(argc, argv, "i:o:s:d:",
             long_options, &option_index);
 	
 		if(c==-1)	break;
@@ -164,6 +168,31 @@ int main(int argc, char **argv)
 				exit(0);
 			}
 			break;
+			
+		case 'd':
+			if (division_way < 0) {
+				division_way = atof(optarg);
+				if (division_way < 0 || division_way >3) {
+					if(my_rank==0)
+					{
+						fprintf(stderr, "%d --division must be a integer value among 0,1,2,3\n", ERRM);
+						Usage();
+					}
+					MPI_Finalize();
+					exit(0);
+				}
+			}
+			else {
+				if(my_rank==0)
+				{
+					fprintf(stderr,"%s --division set more than once\n", ERRM);
+					Usage();
+				}
+				MPI_Finalize();
+				exit(0);
+			}
+			break;
+			
 		default:
 			// Cannot parse. //
 			if(my_rank==0)
@@ -190,6 +219,9 @@ int main(int argc, char **argv)
 		MPI_Finalize();
 		exit(0);
 	}
+	
+	if(division_way==-1)
+		division_way = 2;
 	
 	if(output == UNSET)
 	{
@@ -468,55 +500,82 @@ int main(int argc, char **argv)
 		}  
 	} 
 	if(my_rank==0)
-		printf("single_edge_graph_num: %d\n", single_edge_graph.size());
-	
-	/*
-	int begin,end,local_n;
-	//divide the data
-	split_data_increment(single_edge_graph.size(), p, my_rank, &begin, &end, &local_n);	
-	for(int i=begin; i<end ; i++)
 	{
-		//make sure won't over the vector limit when processes are too much
-		if( i<single_edge_graph.size() )
+		printf("single_edge_graph_num: %d\n", single_edge_graph.size());
+		switch (division_way)
 		{
-			GraphCode gc;
-			Edge e = single_edge_graph[i];
-			gc.seq.push_back(&e);
-			for (int i = 0; i < nr_graph; ++i)  
-				if (GS[i].hasEdge(e.x, e.a, e.y))  
-					gc.gs.push_back(i);  
-
-			subgraph_mining(gc, 2);
-				
-			// GS <- GS - e 
-			for (int j = 0; j < nr_graph; j++)  
-				GS[j].removeEdge(e.x, e.a, e.y); 
+			case 0:
+				printf("the division strategy among processes : equality\n");
+				break;
+			case 1:
+				printf("the division strategy among processes : single\n");
+				break;
+			case 2:
+				printf("the division strategy among processes : increment\n");
+				break;
+			case 3:
+				printf("the division strategy among processes : circle\n");
+				break;
+			default:
+				break;
 		}
 	}
-	*/
 	
-	int* index = new int[single_edge_graph.size()/p+1];
-	int local_n;
-	//divide the data circle
-	split_data_circle(single_edge_graph.size(), p, my_rank, index, &local_n);	
-	for(int i=0; i<local_n ; i++)
+	if(division_way>=0&&division_way<=2)
 	{
-		//make sure won't over the vector limit when processes are too much
-		if( index[i]<single_edge_graph.size() )
+		int begin,end,local_n;
+		//divide the data
+		if(division_way==0)
+			split_data_equality(single_edge_graph.size(), p, my_rank, &begin, &end, &local_n);	
+		else if(division_way==1)
+			split_data_single(single_edge_graph.size(), p, my_rank, &begin, &end, &local_n);	
+		else if(division_way==2)
+			split_data_increment(single_edge_graph.size(), p, my_rank, &begin, &end, &local_n);	
+		for(int i=begin; i<end ; i++)
 		{
-			GraphCode gc;
-			Edge e = single_edge_graph[index[i]];
-			gc.seq.push_back(&e);
-			for (int i = 0; i < nr_graph; ++i)  
-				if (GS[i].hasEdge(e.x, e.a, e.y))  
-					gc.gs.push_back(i);  
+			//make sure won't over the vector limit when processes are too much
+			if( i<single_edge_graph.size() )
+			{
+				GraphCode gc;
+				Edge e = single_edge_graph[i];
+				gc.seq.push_back(&e);
+				for (int j = 0; j < nr_graph; ++j)  
+					if (GS[j].hasEdge(e.x, e.a, e.y))  
+						gc.gs.push_back(j);  
 
-			subgraph_mining(gc, 2);
-				
-			/* GS <- GS - e */
-			for (int j = 0; j < nr_graph; j++)  
-				GS[j].removeEdge(e.x, e.a, e.y); 
+				subgraph_mining(gc, 2);
+					
+				// GS <- GS - e 
+				for (int j = 0; j < nr_graph; j++)  
+					GS[j].removeEdge(e.x, e.a, e.y); 
+			}
 		}
+	}
+	else
+	{
+		int* index = new int[single_edge_graph.size()/p+1];
+		int local_n;
+		//divide the data circle
+		split_data_circle(single_edge_graph.size(), p, my_rank, index, &local_n);	
+		for(int i=0; i<local_n ; i++)
+		{
+			//make sure won't over the vector limit when processes are too much
+			if( index[i]<single_edge_graph.size() )
+			{
+				GraphCode gc;
+				Edge e = single_edge_graph[index[i]];
+				gc.seq.push_back(&e);
+				for (int j = 0; j < nr_graph; ++j)  
+					if (GS[j].hasEdge(e.x, e.a, e.y))  
+						gc.gs.push_back(j);  
+				subgraph_mining(gc, 2);
+				
+				// GS <- GS - e 
+				for (int j = 0; j < nr_graph; j++)  
+					GS[j].removeEdge(e.x, e.a, e.y); 
+			}
+		}
+		delete index;
 	}
 	
 	MPI_Barrier(MPI_COMM_WORLD);
