@@ -21,7 +21,7 @@ const int LABEL_MAX = 1000;
 const char *USAGE =
 "\n"
 "Usage:"
-"  gSpan [options]\n"
+"  paraGSpan [options]\n"
 "\n"
 "  general options:\n"
 "    -s --support: The minimal value of support rates"

@@ -33,7 +33,7 @@ e 0 1 3      (edge from node 1 to node 2, with label 3)
 
 ### Usage:
 ```shell
-Usage:	gSpan [options]
+Usage:	paraGSpan [options]
 	general options:
 		-s --support: The minimal value of support rates(0-1)
 	input/output options:
