@@ -128,7 +128,6 @@ void subgraph_mining(GraphCode &gc, int next)
     g->gs.swap(gc.gs);  
 } 
 
-
 void one_edge_expansion(GraphCode &gc, int next, vector<GraphCode> &child_gcs, vector<int> &nexts)
 {  
     /* construct graph from DFS code */  
@@ -251,6 +250,7 @@ void freqGraphMining(GraphCode &gc, int next)
 	}	
 }
 
+
 void paraFreqGraphMining(GraphCode &gc, int next, int thread_num)
 {
 	vector<GraphCode> current_global_child_gcs;
@@ -268,15 +268,16 @@ void paraFreqGraphMining(GraphCode &gc, int next, int thread_num)
 	{
 		#pragma omp parallel num_threads(thread_num)
 		{		
-			int local_t;	//the data number of each thread must hand
-			int begin_t,end_t;
-			int threadID = omp_get_thread_num();
 			
 			vector<GraphCode> local_child_gcs;
 			vector<int> local_nexts;
 			vector<GraphCode> current_local_child_gcs;
 			vector<int> current_local_nexts;
 			
+			/*
+			int local_t;	//the data number of each thread must hand
+			int begin_t,end_t;
+			int threadID = omp_get_thread_num();
 			// compute the local size, up boundary and down boundary for every thread in 
 			split_data_equality(len, thread_num, threadID, &begin_t, &end_t, &local_t);
 			for(size_t i=begin_t; i<end_t; i++)
@@ -292,6 +293,25 @@ void paraFreqGraphMining(GraphCode &gc, int next, int thread_num)
 				local_child_gcs.clear();
 				local_nexts.clear();
 			}
+			*/
+					
+			//#pragma omp for schedule(static,1)
+			//#pragma omp for schedule(guided)
+			#pragma omp for schedule(dynamic)
+			for(size_t i=0; i<len; i++)
+			{
+				//carry out current child's one edge expansion
+				one_edge_expansion(current_global_child_gcs[i], current_global_nexts[i], local_child_gcs, local_nexts);
+					
+				//add the current child's expansion to local result
+				current_local_child_gcs.insert(current_local_child_gcs.end(), local_child_gcs.begin(), local_child_gcs.end());
+				current_local_nexts.insert(current_local_nexts.end(), local_nexts.begin(), local_nexts.end());
+			
+				//clear current child's expansion to carry out the next child's expansion
+				local_child_gcs.clear();
+				local_nexts.clear();
+			}
+			
 			
 			//merge local results into tmp global results  
 			#pragma omp critical

@@ -35,13 +35,13 @@ e 0 1 3      (edge from node 1 to node 2, with label 3)
 ```shell
 Usage:	paraGSpan [options]
 	general options:
-		-s --support: The minimal value of support rates(0-1)
+		-s --support: The minimal value of support rates(0-1).
+		-d --division: the division strategy among processes[default:2].
+			0: equality; 1: single; 2: increment; 3: circle
+		-t --thread: the number of threads in per process_num[default:1].
 	input/output options:
 		-i --input: input file of graph set information.
 		-o --output: the output file of frequent subgraph results.
-		-d --division: the division strategy among processes[default:2]
-			0: equality; 1: single; 2: increment; 3: circle.
-		-t --thread: the number of threads in per process_num[default:1].
 ```
 
 As an example file Chemical_340 is provided. To run paraGSpan on this file,
