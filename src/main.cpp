@@ -3,8 +3,7 @@
 #include <stdio.h>  
 #include <stdlib.h>  
 #include <string.h>  
-#include <assert.h>  
-#include <time.h>  
+#include <assert.h> 
 #include <vector>  
 #include <map>  
 #include <set>
@@ -31,8 +30,8 @@ const char *USAGE =
 "    -i --input: input file of graph set information. \n"
 "    -o --output: the output file of frequent subgraph results. \n"
 "    -d --division: the division strategy among processes[default:2] \n"
-"    	0: equality; 1: single; 2: increment; 3: circle. \n";
-"    -t --thread: the number of threads in per process_num[default:1].\n"
+"    	0: equality; 1: single; 2: increment; 3: circle. \n"
+"    -t --thread: the number of threads in per process_num[default:1].\n";
 
 void Usage()
 {
@@ -47,7 +46,7 @@ int main(int argc, char **argv)
     int	p;         /* The number of processes   */
     int tag = 0;
 	int parameternum;
-	clock_t clk;
+	double start,finish,duration;
 	
 	/* Let the system do what it needs to start up MPI */
     MPI_Init(&argc, &argv);
@@ -72,7 +71,7 @@ int main(int argc, char **argv)
 		exit(0);
 	}
 	
-    clk = clock();
+    GET_TIME(start);
   
     /* parse command line options */
 	// Unset flags (value -1).
@@ -260,9 +259,14 @@ int main(int argc, char **argv)
 		exit(0);
 	}
 	
+	
 	if(my_rank==0)
-		printf("loading file time: %f seconds\n", (float)(clock() - clk)/CLOCKS_PER_SEC);
-	clk = clock(); 
+	{
+		GET_TIME(finish);
+		duration = finish-start;	
+		printf("loading file time: %f seconds\n", duration);
+		GET_TIME(start);		
+	}
 		
     bool occ_node_label[LABEL_MAX + 1], occ_edge_label[LABEL_MAX + 1];  
     int freq_node_label[LABEL_MAX + 1], freq_edge_label[LABEL_MAX + 1];  
@@ -508,9 +512,13 @@ int main(int argc, char **argv)
     } 
 	
 	if(my_rank==0)
-		printf("prework for mining frequenct subgraph spend: %f seconds\n", (float)(clock() - clk)/CLOCKS_PER_SEC );
-	clk = clock(); 
-	
+	{
+		GET_TIME(finish);
+		duration = finish-start;	
+		printf("prework for mining frequenct subgraph spend: %f seconds\n", duration);
+		GET_TIME(start);
+	}
+
 	// use frequenct 1-edge graph to submining
 	vector<Edge> single_edge_graph;
 	for (int x = 0; x <= max_node_label; ++x)
@@ -620,8 +628,12 @@ int main(int argc, char **argv)
 	MPI_Barrier(MPI_COMM_WORLD);
 	
 	if(my_rank==0)
-		printf("Mining frequenct subgraph spend: %f seconds\n", (float)(clock() - clk)/CLOCKS_PER_SEC);
-	clk = clock(); 	
+	{
+		GET_TIME(finish);
+		duration = finish-start;	
+		printf("Mining frequenct subgraph spend: %f seconds\n", duration);
+		GET_TIME(start);
+	}
 	
 	int local_fgraph_number = (int)S.size();
 	int gloal_fgraph_number;
@@ -666,7 +678,11 @@ int main(int argc, char **argv)
     fclose(fp);  
   
 	if(my_rank==0)
-		printf("output mining results time: %f seconds\n", (float)(clock() - clk)/CLOCKS_PER_SEC);  
+	{
+		GET_TIME(finish);
+		duration = finish-start;	
+		printf("output mining results time: %f seconds\n", duration);
+	}
   
     MPI_Finalize();
 	return 0;  

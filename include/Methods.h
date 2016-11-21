@@ -5,13 +5,23 @@
 #include <string.h>  
 #include <vector>
 #include <set>
-#include <map>  
+#include <map> 
+#include <time.h>  
+#include <sys/time.h>  
 #include "Global.h"
 #include "Traveler.h"
 #include "SubTraveler.h"
 #include <omp.h>
 
 using namespace std;
+
+
+#define GET_TIME(now) { \
+   struct timeval t; \
+   gettimeofday(&t, NULL); \
+   now = t.tv_sec + t.tv_usec/1000000.0; \
+}
+
 
 void split_data_equality(int size, int n, int my_rank, int* begin, int* end, int* local_n);
 void split_data_increment(int size, int n, int my_rank, int* begin, int* end, int* local_n);

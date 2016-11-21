@@ -41,12 +41,13 @@ Usage:	gSpan [options]
 		-o --output: the output file of frequent subgraph results.
 		-d --division: the division strategy among processes[default:2]
 			0: equality; 1: single; 2: increment; 3: circle.
+		-t --thread: the number of threads in per process_num[default:1].
 ```
 
 As an example file Chemical_340 is provided. To run paraGSpan on this file,
 type:
 ```shell
-mpirun -n 1 ./paraGSpan -i data/Chemical_340 -o output -s 0.1 -d 2
+mpirun -n 1 ./paraGSpan -i data/Chemical_340 -o output -s 0.1 -d 2 -t 2
 ```
 
 ### Output Format:
@@ -58,7 +59,7 @@ single_vertex_graph_num: 16
 prework for mining frequenct subgraph spend: 0.020000 seconds
 single_edge_graph_num: 23
 the division strategy among processes : increment
-Mining frequenct subgraph spend: 0.470000 seconds
+Mining frequenct subgraph spend: 0.410000 seconds
 Found 860 frequent subgraphs
 output mining results time: 0.010000 seconds
 ```
