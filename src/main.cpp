@@ -543,7 +543,7 @@ int main(int argc, char **argv)
 					if (GS[j].hasEdge(e.x, e.a, e.y))  
 						gc.gs.push_back(j);  
 
-				subgraph_mining(gc, 2);
+				freqGraphMining(gc, 2);
 					
 				// GS <- GS - e 
 				for (int j = 0; j < nr_graph; j++)  
