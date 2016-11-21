@@ -208,6 +208,55 @@ void freqGraphMining(GraphCode &gc, int next)
 	vector<int> current_global_nexts;
 	vector<GraphCode> tmp_global_child_gcs;
 	vector<int> tmp_global_nexts;
+	vector<GraphCode> local_child_gcs;
+	vector<int> local_nexts;
+	
+	//first expansion to get the children set
+	one_edge_expansion(gc, next, current_global_child_gcs, current_global_nexts);
+	
+	int len =  current_global_child_gcs.size();
+	
+	//submining per level
+	while(len != 0)
+	{	
+		for(size_t i=0; i<len; i++)
+		{
+			//carry out current child's one edge expansion
+			one_edge_expansion(current_global_child_gcs[i], current_global_nexts[i], local_child_gcs, local_nexts);
+				
+			//add the current child's expansion to local result
+			tmp_global_child_gcs.insert(tmp_global_child_gcs.end(), local_child_gcs.begin(), local_child_gcs.end());
+			tmp_global_nexts.insert(tmp_global_nexts.end(), local_nexts.begin(), local_nexts.end());
+		
+			//clear current child's expansion to carry out the next child's expansion
+			local_child_gcs.clear();
+			local_nexts.clear();
+		}
+		
+		//swap tmp global results and global results
+		current_global_child_gcs.swap(tmp_global_child_gcs);
+		current_global_nexts.swap(tmp_global_nexts);
+
+		//free the space of edges(because the edge is new to generate)
+		//for(size_t i=0; i<tmp_global_child_gcs.size(); i++)
+		//	for(size_t j=0; j < tmp_global_child_gcs[j].seq.size(); j++)
+		//		delete[] tmp_global_child_gcs[i].seq[j];
+		
+		//clear tmp global results to carry out the next level mining
+		tmp_global_child_gcs.clear();
+		tmp_global_nexts.clear();
+			
+		//get the size of global results to judge whether continue next level mining
+		len = current_global_child_gcs.size();
+	}	
+}
+
+void paraFreqGraphMining(GraphCode &gc, int next, int thread_num)
+{
+	vector<GraphCode> current_global_child_gcs;
+	vector<int> current_global_nexts;
+	vector<GraphCode> tmp_global_child_gcs;
+	vector<int> tmp_global_nexts;
 	
 	//first expansion to get the children set
 	one_edge_expansion(gc, next, current_global_child_gcs, current_global_nexts);
@@ -217,7 +266,7 @@ void freqGraphMining(GraphCode &gc, int next)
 	//submining per level
 	while(len != 0)
 	{
-		#pragma omp parallel num_threads(8)
+		#pragma omp parallel num_threads(thread_num)
 		{		
 			int local_t;	//the data number of each thread must hand
 			int begin_t,end_t;
@@ -228,8 +277,8 @@ void freqGraphMining(GraphCode &gc, int next)
 			vector<GraphCode> current_local_child_gcs;
 			vector<int> current_local_nexts;
 			
-			// compute the local size 、up boundary and down boundary for every thread in 
-			split_data_equality(len, 8, threadID, &begin_t, &end_t, &local_t);
+			// compute the local size, up boundary and down boundary for every thread in 
+			split_data_equality(len, thread_num, threadID, &begin_t, &end_t, &local_t);
 			for(size_t i=begin_t; i<end_t; i++)
 			{
 				//carry out current child's one edge expansion

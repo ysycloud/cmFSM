@@ -32,6 +32,7 @@ const char *USAGE =
 "    -o --output: the output file of frequent subgraph results. \n"
 "    -d --division: the division strategy among processes[default:2] \n"
 "    	0: equality; 1: single; 2: increment; 3: circle. \n";
+"    -t --thread: the number of threads in per process_num[default:1].\n"
 
 void Usage()
 {
@@ -77,6 +78,7 @@ int main(int argc, char **argv)
 	// Unset flags (value -1).
 	float min_Support_Rate = -1;
 	int division_way = -1;
+	int thread_num = -1;
     // Unset options (value 'UNSET').
 	char * const UNSET = "unset";
     char * input = UNSET;
@@ -96,10 +98,11 @@ int main(int argc, char **argv)
 			{"output",          required_argument,        0, 'o'},
 			{"support",         required_argument,        0, 's'},
 			{"division",        required_argument,        0, 'd'},
+			{"thread",        	required_argument,        0, 't'},
 			{0, 0, 0, 0}
 		};
 
-		c = getopt_long(argc, argv, "i:o:s:d:",
+		c = getopt_long(argc, argv, "i:o:s:d:t:",
             long_options, &option_index);
 	
 		if(c==-1)	break;
@@ -192,6 +195,30 @@ int main(int argc, char **argv)
 			}
 			break;
 			
+		case 't':
+			if (thread_num < 0) {
+				thread_num = atof(optarg);
+				if (thread_num < 0) {
+					if(my_rank==0)
+					{
+						fprintf(stderr, "%d --thread number must be a positive integer value\n", ERRM);
+						Usage();
+					}
+					MPI_Finalize();
+					exit(0);
+				}
+			}
+			else {
+				if(my_rank==0)
+				{
+					fprintf(stderr,"%s --thread number set more than once\n", ERRM);
+					Usage();
+				}
+				MPI_Finalize();
+				exit(0);
+			}
+			break;
+			
 		default:
 			// Cannot parse. //
 			if(my_rank==0)
@@ -221,6 +248,9 @@ int main(int argc, char **argv)
 	
 	if(division_way==-1)
 		division_way = 2;
+	
+	if(thread_num==-1)
+		thread_num = 1;
 	
 	if(output == UNSET)
 	{
@@ -520,7 +550,7 @@ int main(int argc, char **argv)
 		}
 	}
 	
-	// using different division strategy to mine frequent subgraph
+	// using different division strategy to mine frequent subgraph among processes
 	if(division_way>=0&&division_way<=2)
 	{
 		int begin,end,local_n;
@@ -542,9 +572,13 @@ int main(int argc, char **argv)
 				for (int j = 0; j < nr_graph; ++j)  
 					if (GS[j].hasEdge(e.x, e.a, e.y))  
 						gc.gs.push_back(j);  
-
-				freqGraphMining(gc, 2);
-					
+				
+				//begin to mining frequent subgraph
+				if(thread_num == 1)
+					freqGraphMining(gc, 2);
+				else
+					paraFreqGraphMining(gc, 2, thread_num);
+				
 				// GS <- GS - e 
 				for (int j = 0; j < nr_graph; j++)  
 					GS[j].removeEdge(e.x, e.a, e.y); 
@@ -568,7 +602,12 @@ int main(int argc, char **argv)
 				for (int j = 0; j < nr_graph; ++j)  
 					if (GS[j].hasEdge(e.x, e.a, e.y))  
 						gc.gs.push_back(j);  
-				subgraph_mining(gc, 2);
+				
+				//begin to mining frequent subgraph
+				if(thread_num == 1)
+					freqGraphMining(gc, 2);
+				else
+					paraFreqGraphMining(gc, 2, thread_num);
 				
 				// GS <- GS - e 
 				for (int j = 0; j < nr_graph; j++)  
