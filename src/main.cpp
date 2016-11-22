@@ -493,7 +493,9 @@ int main(int argc, char **argv)
 
   
     /* enumerate all frequent 1-edge graphs in GS */  
-    EF.init(max_node_label, max_edge_label);  
+    EF.init(max_node_label, max_edge_label);
+	
+	#pragma omp parallel for num_threads(thread_num) schedule(dynamic)	
     for (int x = 0; x <= max_node_label; ++x)  
     {  
         for (int a = 0; a <= max_edge_label; ++a)  
@@ -518,7 +520,7 @@ int main(int argc, char **argv)
 		GET_TIME(start);
 	}
 
-	// use frequenct 1-edge graph to submining
+	// use frequenct 1-edge graph to submining(edges are sorted, cannot parallel)
 	vector<Edge> single_edge_graph;
 	for (int x = 0; x <= max_node_label; ++x)
 	{  
