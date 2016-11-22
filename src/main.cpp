@@ -583,6 +583,7 @@ int main(int argc, char **argv)
 						gc.gs.push_back(j);  
 				
 				//begin to mining frequent subgraph
+				//subgraph_mining(gc, 2);
 				if(thread_num == 1)
 					freqGraphMining(gc, 2);
 				else
@@ -613,6 +614,7 @@ int main(int argc, char **argv)
 						gc.gs.push_back(j);  
 				
 				//begin to mining frequent subgraph
+				//subgraph_mining(gc, 2);
 				if(thread_num == 1)
 					freqGraphMining(gc, 2);
 				else
