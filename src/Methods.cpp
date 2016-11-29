@@ -182,6 +182,9 @@ void one_edge_expansion(GraphCode &gc, int next, vector<GraphCode> &child_gcs, v
     for (map<Edge, vector<int> >::iterator i = m.begin(); i != m.end(); ++i)  
     {  
 		//must new the edge to make sure the spare will not free after function return
+		//there is no need to delete e in mining stage,  
+		//because ‘child_gc.seq = s‘ lead every child will use parent seqs.
+		//if delete before program end, must error(delete one pointer more than once)
         Edge* e = new Edge(i->first.ix,i->first.iy,i->first.x,i->first.a,i->first.y);
 		//const Edge *e = &i->first;  
         vector<int> &spp = i->second;   //gs for current extension
@@ -222,7 +225,7 @@ void freqGraphMining(GraphCode &gc, int next)
 		{
 			//carry out current child's one edge expansion
 			one_edge_expansion(current_global_child_gcs[i], current_global_nexts[i], local_child_gcs, local_nexts);
-				
+			
 			//add the current child's expansion to local result
 			tmp_global_child_gcs.insert(tmp_global_child_gcs.end(), local_child_gcs.begin(), local_child_gcs.end());
 			tmp_global_nexts.insert(tmp_global_nexts.end(), local_nexts.begin(), local_nexts.end());
@@ -235,11 +238,6 @@ void freqGraphMining(GraphCode &gc, int next)
 		//swap tmp global results and global results
 		current_global_child_gcs.swap(tmp_global_child_gcs);
 		current_global_nexts.swap(tmp_global_nexts);
-
-		//free the space of edges(because the edge is new to generate)
-		//for(size_t i=0; i<tmp_global_child_gcs.size(); i++)
-		//	for(size_t j=0; j < tmp_global_child_gcs[j].seq.size(); j++)
-		//		delete[] tmp_global_child_gcs[i].seq[j];
 		
 		//clear tmp global results to carry out the next level mining
 		tmp_global_child_gcs.clear();
@@ -324,11 +322,6 @@ void paraFreqGraphMining(GraphCode &gc, int next, int thread_num)
 		//swap tmp global results and global results
 		current_global_child_gcs.swap(tmp_global_child_gcs);
 		current_global_nexts.swap(tmp_global_nexts);
-
-		//free the space of edges(because the edge is new to generate)
-		//for(size_t i=0; i<tmp_global_child_gcs.size(); i++)
-		//	for(size_t j=0; j < tmp_global_child_gcs[j].seq.size(); j++)
-		//		delete tmp_global_child_gcs[i].seq[j];
 		
 		//clear tmp global results to carry out the next level mining
 		tmp_global_child_gcs.clear();
