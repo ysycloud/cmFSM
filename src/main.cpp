@@ -11,6 +11,7 @@
 #include <getopt.h>
 #include "Global.h"
 #include "Methods.h"
+#include "Supervisor.h"
 #include "mpi.h"
    
 using namespace std;  
@@ -26,7 +27,7 @@ const char *USAGE =
 "  general options:\n"
 "    -s --support: The minimal value of support rates\n"
 "    -d --division: the division strategy among processes[default:2] \n"
-"    	0: equality; 1: single; 2: increment; 3: circle. \n"
+"    	0: equality; 1: single; 2: increment; 3: circle; 4:dynamic. \n"
 "    -t --thread: the number of threads in per process_num[default:1].\n"
 "  input/output options: \n"
 "    -i --input: input file of graph set information. \n"
@@ -175,7 +176,7 @@ int main(int argc, char **argv)
 				if (division_way < 0 || division_way >3) {
 					if(my_rank==0)
 					{
-						fprintf(stderr, "%d --division must be a integer value among 0,1,2,3\n", ERRM);
+						fprintf(stderr, "%d --division must be a integer value among 0,1,2,3,4\n", ERRM);
 						Usage();
 					}
 					MPI_Finalize();
@@ -595,7 +596,7 @@ int main(int argc, char **argv)
 			}
 		}
 	}
-	else
+	else if(division_way == 3)  //circle split
 	{
 		int* index = new int[single_edge_graph.size()/p+1];
 		int local_n;
@@ -626,6 +627,63 @@ int main(int argc, char **argv)
 			}
 		}
 		delete index;
+	}
+	else  //dynamic slipt
+	{
+		if( p==1 ) //only one process, no need to use supervisor
+		{
+			for(int i=0; i<single_edge_graph.size() ; i++)
+			{
+				GraphCode gc;
+				Edge e = single_edge_graph[i];
+				gc.seq.push_back(&e);
+				for (int j = 0; j < nr_graph; ++j)  
+					if (GS[j].hasEdge(e.x, e.a, e.y))  
+						gc.gs.push_back(j);  
+				
+				//begin to mining frequent subgraph
+				//subgraph_mining(gc, 2);
+				if(thread_num == 1)
+					freqGraphMining(gc, 2);
+				else
+					paraFreqGraphMining(gc, 2, thread_num);
+				
+				// GS <- GS - e 
+				for (int j = 0; j < nr_graph; j++)  
+					GS[j].removeEdge(e.x, e.a, e.y); 
+			}
+		}
+		else  //not only one process, startup supervisor in process0
+		{
+			if(my_rank==0)
+				supervisor(single_edge_graph.size(),p);
+			else
+			{
+				int pos = request_edge_id(my_rank); 
+				while( pos != -1 )
+				{
+					GraphCode gc;
+					Edge e = single_edge_graph[pos];
+					gc.seq.push_back(&e);
+					for (int j = 0; j < nr_graph; ++j)  
+						if (GS[j].hasEdge(e.x, e.a, e.y))  
+							gc.gs.push_back(j);  
+				
+					//begin to mining frequent subgraph
+					//subgraph_mining(gc, 2);
+					if(thread_num == 1)
+						freqGraphMining(gc, 2);
+					else
+						paraFreqGraphMining(gc, 2, thread_num);
+				
+					// GS <- GS - e 
+					for (int j = 0; j < nr_graph; j++)  
+						GS[j].removeEdge(e.x, e.a, e.y);
+				
+					pos = request_edge_id();
+				}
+			}
+		}
 	}
 	
 	MPI_Barrier(MPI_COMM_WORLD);
