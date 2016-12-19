@@ -7,45 +7,24 @@
 #include <vector>  
 #include <map>  
 #include <set>
-#include <unistd.h> 
-#include <getopt.h>
-#include "Global.h"
+#include "IO.h"
 #include "Methods.h"
 #include "Supervisor.h"
 #include "mpi.h"
+
    
 using namespace std;  
 
 #define ERRM "gSpan error:"
 
 const int LABEL_MAX = 1000;
-const char *USAGE =
-"\n"
-"Usage:"
-"  paraGSpan [options]\n"
-"\n"
-"  general options:\n"
-"    -s --support: The minimal value of support rates\n"
-"    -d --division: the division strategy among processes[default:2] \n"
-"    	0: equality; 1: single; 2: increment; 3: circle; 4:dynamic. \n"
-"    -t --thread: the number of threads in per process_num[default:1].\n"
-"  input/output options: \n"
-"    -i --input: input file of graph set information. \n"
-"    -o --output: the output file of frequent subgraph results. \n";
-
-void Usage()
-{
-	fprintf(stderr, "%s\n", USAGE);
-}
-  
-  
+ 
 int main(int argc, char **argv)  
 {  
 
 	int	my_rank;   /* My process rank           */
     int	p;         /* The number of processes   */
     int tag = 0;
-	int parameternum;
 	double start,finish,duration;
 	
 	/* Let the system do what it needs to start up MPI */
@@ -56,23 +35,7 @@ int main(int argc, char **argv)
 
     /* Find out how many processes are being used */
     MPI_Comm_size(MPI_COMM_WORLD, &p);
-	
-	/* check parameter*/
-	if(my_rank == 0)
-	{
-		parameternum = argc;
-		if(parameternum == 1)
-			Usage();		
-	}
-	MPI_Bcast(&parameternum, 1, MPI_INT, 0, MPI_COMM_WORLD);
-	if(parameternum == 1)
-	{
-		MPI_Finalize();
-		exit(0);
-	}
-	
-    GET_TIME(start);
-  
+	 
     /* parse command line options */
 	// Unset flags (value -1).
 	float min_Support_Rate = -1;
@@ -82,192 +45,11 @@ int main(int argc, char **argv)
 	char * const UNSET = "unset";
     char * input = UNSET;
 	char * output = UNSET;
-	
-	if (argc == 1) 
-	{
-		Usage();
-		exit(0);
-    }
-	
-	int c;
-	while (1) {
-		int option_index = 0;
-		static struct option long_options[] = {
-			{"input",           required_argument,        0, 'i'},
-			{"output",          required_argument,        0, 'o'},
-			{"support",         required_argument,        0, 's'},
-			{"division",        required_argument,        0, 'd'},
-			{"thread",        	required_argument,        0, 't'},
-			{0, 0, 0, 0}
-		};
-
-		c = getopt_long(argc, argv, "i:o:s:d:t:",
-            long_options, &option_index);
-	
-		if(c==-1)	break;
 		
-		switch (c) {
+	parse_params(argc, argv, my_rank, input, output, min_Support_Rate, division_way, thread_num);
 		
-		case 0:
-			// A flag was set. //
-			break;
-
-		case 'i':
-			if (input == UNSET) 
-			{
-				input = optarg;
-			}
-			else 
-			{
-				if(my_rank==0)
-				{
-					fprintf(stderr, "%s --input set more than once\n", ERRM);
-					Usage();
-				}
-				MPI_Finalize();	
-				exit(0);
-			}
-			break;
-		
-		case 'o':
-			if (output == UNSET) 
-			{
-				output = optarg;
-			}
-			else 
-			{
-				if(my_rank==0)
-				{
-					fprintf(stderr, "%s --output set more than once\n", ERRM);
-					Usage();
-				}
-				MPI_Finalize();
-				exit(0);
-			}
-			break;
-		
-		case 's':
-			if (min_Support_Rate < 0) {
-				min_Support_Rate = atof(optarg);
-				if (min_Support_Rate < 0 || min_Support_Rate >1) {
-					if(my_rank==0)
-					{
-						fprintf(stderr, "%s --support must be a float value between 0-1\n", ERRM);
-						Usage();
-					}
-					MPI_Finalize();
-					exit(0);
-				}
-			}
-			else {
-				if(my_rank==0)
-				{
-					fprintf(stderr,"%s --support set more than once\n", ERRM);
-					Usage();
-				}
-				MPI_Finalize();
-				exit(0);
-			}
-			break;
+	GET_TIME(start);
 			
-		case 'd':
-			if (division_way < 0) {
-				division_way = atof(optarg);
-				if (division_way < 0 || division_way >3) {
-					if(my_rank==0)
-					{
-						fprintf(stderr, "%d --division must be a integer value among 0,1,2,3,4\n", ERRM);
-						Usage();
-					}
-					MPI_Finalize();
-					exit(0);
-				}
-			}
-			else {
-				if(my_rank==0)
-				{
-					fprintf(stderr,"%s --division set more than once\n", ERRM);
-					Usage();
-				}
-				MPI_Finalize();
-				exit(0);
-			}
-			break;
-			
-		case 't':
-			if (thread_num < 0) {
-				thread_num = atof(optarg);
-				if (thread_num < 0) {
-					if(my_rank==0)
-					{
-						fprintf(stderr, "%d --thread number must be a positive integer value\n", ERRM);
-						Usage();
-					}
-					MPI_Finalize();
-					exit(0);
-				}
-			}
-			else {
-				if(my_rank==0)
-				{
-					fprintf(stderr,"%s --thread number set more than once\n", ERRM);
-					Usage();
-				}
-				MPI_Finalize();
-				exit(0);
-			}
-			break;
-			
-		default:
-			// Cannot parse. //
-			if(my_rank==0)
-				Usage();
-			MPI_Finalize();
-			exit(0);
-		}		
-	}
-  
-    /* read graph data */  
-    FILE *fp;
-	if((fp=fopen(input,"r"))==NULL)
-	{
-		if(my_rank==0)
-			fprintf(stderr, "[ param error : -i ] can not open input '%s' file\n", input);
-		MPI_Finalize();
-		exit(0);
-	}
-	
-	if(min_Support_Rate==-1)
-	{
-		if(my_rank==0)
-			fprintf(stderr, "[ param error : -s ] please input the minimal support rates!\n");
-		MPI_Finalize();
-		exit(0);
-	}
-	
-	if(division_way==-1)
-		division_way = 2;
-	
-	if(thread_num==-1)
-		thread_num = 1;
-	
-	if(output == UNSET)
-	{
-		if(my_rank==0)
-			fprintf(stderr, "[ param error : -o ] please input the output file path!\n");
-		MPI_Finalize();
-		exit(0);
-	}
-	
-	
-	if(my_rank==0)
-	{
-		GET_TIME(finish);
-		duration = finish-start;	
-		printf("loading file time: %f seconds\n", duration);
-		GET_TIME(start);		
-	}
-		
     bool occ_node_label[LABEL_MAX + 1], occ_edge_label[LABEL_MAX + 1];  
     int freq_node_label[LABEL_MAX + 1], freq_edge_label[LABEL_MAX + 1];  
     memset(freq_node_label, 0, sizeof(freq_node_label));  
@@ -348,6 +130,14 @@ int main(int argc, char **argv)
             assert(0);  
     }  
     fclose(fp);  
+	
+	if(my_rank==0)
+	{
+		GET_TIME(finish);
+		duration = finish-start;	
+		printf("loading file time: %f seconds\n", duration);
+		GET_TIME(start);		
+	}
   
     min_support = (int) (v_gd.size() * min_Support_Rate);
 	//min_support	= v_gd.size() * 0.1;
@@ -576,23 +366,8 @@ int main(int argc, char **argv)
 			//make sure won't over the vector limit when processes are too much
 			if( i<single_edge_graph.size() )
 			{
-				GraphCode gc;
 				Edge e = single_edge_graph[i];
-				gc.seq.push_back(&e);
-				for (int j = 0; j < nr_graph; ++j)  
-					if (GS[j].hasEdge(e.x, e.a, e.y))  
-						gc.gs.push_back(j);  
-				
-				//begin to mining frequent subgraph
-				//subgraph_mining(gc, 2);
-				if(thread_num == 1)
-					freqGraphMining(gc, 2);
-				else
-					paraFreqGraphMining(gc, 2, thread_num);
-				
-				// GS <- GS - e 
-				for (int j = 0; j < nr_graph; j++)  
-					GS[j].removeEdge(e.x, e.a, e.y); 
+				singleEdgeGraphMining(e);
 			}
 		}
 	}
@@ -607,23 +382,8 @@ int main(int argc, char **argv)
 			//make sure won't over the vector limit when processes are too much
 			if( index[i]<single_edge_graph.size() )
 			{
-				GraphCode gc;
 				Edge e = single_edge_graph[index[i]];
-				gc.seq.push_back(&e);
-				for (int j = 0; j < nr_graph; ++j)  
-					if (GS[j].hasEdge(e.x, e.a, e.y))  
-						gc.gs.push_back(j);  
-				
-				//begin to mining frequent subgraph
-				//subgraph_mining(gc, 2);
-				if(thread_num == 1)
-					freqGraphMining(gc, 2);
-				else
-					paraFreqGraphMining(gc, 2, thread_num);
-				
-				// GS <- GS - e 
-				for (int j = 0; j < nr_graph; j++)  
-					GS[j].removeEdge(e.x, e.a, e.y); 
+				singleEdgeGraphMining(e); 
 			}
 		}
 		delete index;
@@ -634,23 +394,8 @@ int main(int argc, char **argv)
 		{
 			for(int i=0; i<single_edge_graph.size() ; i++)
 			{
-				GraphCode gc;
 				Edge e = single_edge_graph[i];
-				gc.seq.push_back(&e);
-				for (int j = 0; j < nr_graph; ++j)  
-					if (GS[j].hasEdge(e.x, e.a, e.y))  
-						gc.gs.push_back(j);  
-				
-				//begin to mining frequent subgraph
-				//subgraph_mining(gc, 2);
-				if(thread_num == 1)
-					freqGraphMining(gc, 2);
-				else
-					paraFreqGraphMining(gc, 2, thread_num);
-				
-				// GS <- GS - e 
-				for (int j = 0; j < nr_graph; j++)  
-					GS[j].removeEdge(e.x, e.a, e.y); 
+				singleEdgeGraphMining(e); 
 			}
 		}
 		else  //not only one process, startup supervisor in process0
@@ -662,24 +407,8 @@ int main(int argc, char **argv)
 				int pos = request_edge_id(my_rank); 
 				while( pos != -1 )
 				{
-					GraphCode gc;
 					Edge e = single_edge_graph[pos];
-					gc.seq.push_back(&e);
-					for (int j = 0; j < nr_graph; ++j)  
-						if (GS[j].hasEdge(e.x, e.a, e.y))  
-							gc.gs.push_back(j);  
-				
-					//begin to mining frequent subgraph
-					//subgraph_mining(gc, 2);
-					if(thread_num == 1)
-						freqGraphMining(gc, 2);
-					else
-						paraFreqGraphMining(gc, 2, thread_num);
-				
-					// GS <- GS - e 
-					for (int j = 0; j < nr_graph; j++)  
-						GS[j].removeEdge(e.x, e.a, e.y);
-				
+					singleEdgeGraphMining(e);		
 					pos = request_edge_id();
 				}
 			}

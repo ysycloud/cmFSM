@@ -331,3 +331,23 @@ void paraFreqGraphMining(GraphCode &gc, int next, int thread_num)
 		len = current_global_child_gcs.size();
 	}	
 }
+
+void singleEdgeGraphMining(const Edge &e)
+{
+	GraphCode gc;
+	gc.seq.push_back(&e);
+	for (int j = 0; j < nr_graph; ++j)  
+		if (GS[j].hasEdge(e.x, e.a, e.y))  
+			gc.gs.push_back(j);  
+				
+		//begin to mining frequent subgraph
+		//subgraph_mining(gc, 2);
+		if(thread_num == 1)
+			freqGraphMining(gc, 2);
+		else
+			paraFreqGraphMining(gc, 2, thread_num);
+				
+		// GS <- GS - e 
+		for (int j = 0; j < nr_graph; j++)  
+			GS[j].removeEdge(e.x, e.a, e.y); 
+}

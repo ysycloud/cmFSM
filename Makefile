@@ -1,7 +1,7 @@
 #programs,flags,etc.
 INCLUDE	=	-I include
 TARGET = paraGSpan
-SOURCE = src/main.cpp src/Graph.cpp src/Traveler.cpp src/SubTraveler.cpp src/Methods.cpp src/Global.cpp src/Supervisor.cpp
+SOURCE = src/main.cpp src/Graph.cpp src/Traveler.cpp src/SubTraveler.cpp src/Methods.cpp src/Global.cpp src/Supervisor.cpp src/IO.cpp
 
 #ALL Phony Targets
 .PHONY : everything clean all
@@ -19,5 +19,6 @@ paraGSpan:	src/main.cpp	\
 			src/Methods.cpp include/Methods.h	\
 			src/Global.cpp include/Global.h	\
 			src/Supervisor.cpp include/Supervisor.h	\
+			src/IO.cpp include/IO.h	\
 			include/EdgeFrequency.h
 	mpicxx $(INCLUDE) -w -g -fopenmp -o paraGSpan $(SOURCE) -O2

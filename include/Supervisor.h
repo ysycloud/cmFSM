@@ -1,7 +1,6 @@
 #ifndef Supervisor_H
 #define Supervisor_H
 #include "mpi.h"
-#include "Graph.h"
 
 using namespace std;
  

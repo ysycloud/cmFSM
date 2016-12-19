@@ -31,5 +31,6 @@ void subgraph_mining(GraphCode &gc, int next);
 void one_edge_expansion(GraphCode &gc, int next, vector<GraphCode> &child_gcs, vector<int> &nexts);
 void freqGraphMining(GraphCode &gc, int next);
 void paraFreqGraphMining(GraphCode &gc, int next, int thread_num);
+void singleEdgeGraphMining(const Edge &e);
 
 #endif
