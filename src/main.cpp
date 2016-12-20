@@ -35,11 +35,12 @@ int main(int argc, char **argv)
 	float min_Support_Rate;
 	int division_way;
 	int thread_num;
+	int mic_thread;
     char input[FILE_NAME_MAX];
 	char output[FILE_NAME_MAX];
 	
 	/* parse command line options */
-	parse_params(argc, argv, my_rank, input, output, min_Support_Rate, division_way, thread_num);
+	parse_params(argc, argv, my_rank, input, output, min_Support_Rate, division_way, thread_num, mic_thread);
 	
 //	if(my_rank==0)
 //		printf("input:%s\toutput:%s\t%f\t%d\t%d\n",input,output,min_Support_Rate,division_way,thread_num);

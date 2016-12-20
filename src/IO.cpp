@@ -5,7 +5,11 @@ void Usage()
 	fprintf(stderr, "%s\n", USAGE);
 }
  
-void parse_params(int argc, char **argv, int my_rank, char *input, char *output, float &min_Support_Rate, int &division_way, int &thread_num)
+void parse_params(int argc, char **argv, int my_rank,  /* input paras */
+				char *input, char *output, /* output paras */
+				float &min_Support_Rate, int &division_way, 
+				int &thread_num, int &mic_thread /* output paras */
+				)
 {
 	
 	/* check parameter*/
@@ -26,6 +30,7 @@ void parse_params(int argc, char **argv, int my_rank, char *input, char *output,
 	min_Support_Rate = -1;
 	division_way = -1;
 	thread_num = -1;
+	mic_thread = -1;
     // Unset options (value 'UNSET').
     strcpy(input,"unset");
 	strcpy(output,"unset");
@@ -42,10 +47,11 @@ void parse_params(int argc, char **argv, int my_rank, char *input, char *output,
 			{"support",         required_argument,        0, 's'},
 			{"division",        required_argument,        0, 'd'},
 			{"thread",        	required_argument,        0, 't'},
+			{"micthread",       required_argument,        0, 'm'},
 			{0, 0, 0, 0}
 		};
 
-		c = getopt_long(argc, argv, "i:o:s:d:t:",
+		c = getopt_long(argc, argv, "i:o:s:d:t:m:",
             long_options, &option_index);
 	
 		if(c==-1)	break;
@@ -163,6 +169,30 @@ void parse_params(int argc, char **argv, int my_rank, char *input, char *output,
 				exit(0);
 			}
 			break;
+		
+		case 'm':
+			if (mic_thread < 0) {
+				mic_thread = atof(optarg);
+				if (mic_thread < 0) {
+					if(my_rank==0)
+					{
+						fprintf(stderr, "%d --mic thread number must not be a negative integer value\n", ERRM);
+						Usage();
+					}
+					MPI_Finalize();
+					exit(0);
+				}
+			}
+			else {
+				if(my_rank==0)
+				{
+					fprintf(stderr,"%s --mic thread number set more than once\n", ERRM);
+					Usage();
+				}
+				MPI_Finalize();
+				exit(0);
+			}
+			break;
 			
 		default:
 			// Cannot parse.
@@ -215,7 +245,10 @@ void parse_params(int argc, char **argv, int my_rank, char *input, char *output,
 	
 }
 
-void load_data(char *input, vector<GraphData *> &v_gd, int *freq_node_label, int *freq_edge_label)
+void load_data(char *input, /* input paras */
+			vector<GraphData *> &v_gd, /* output paras */
+			int *freq_node_label, int *freq_edge_label  /* output paras */
+			)
 {
 	
 	bool occ_node_label[LABEL_MAX + 1], occ_edge_label[LABEL_MAX + 1];	  

@@ -1,13 +1,13 @@
-# paraGSpan
-Frequent subgraph mining Tool using gSpan algorithm in a parallel manner
+# cmFSM
+Frequent subgraph mining Tool in a parallel manner of cpu/mic cooperation 
 
 
 ### Download and setup
 
 ```shell
 #git clone
-git clone https://github.com/ysycloud/paraGSpan.git
-cd paraGSpan
+git clone https://github.com/ysycloud/cmFSM.git
+cd cmFSM
 #make
 make all
 ```
@@ -37,8 +37,9 @@ Usage:	paraGSpan [options]
 	general options:
 		-s --support: The minimal value of support rates(0-1).
 		-d --division: the division strategy among processes[default:2].
-			0: equality; 1: single; 2: increment; 3: circle
+			0: equality; 1: single; 2: increment; 3: circle; 4：dynamic
 		-t --thread: the number of threads in per process_num[default:1].
+		-m --micthread: the number of threads in per mic[default:0 not use mic]
 	input/output options:
 		-i --input: input file of graph set information.
 		-o --output: the output file of frequent subgraph results.
