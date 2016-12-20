@@ -231,6 +231,10 @@ void parse_params(int argc, char **argv, int my_rank,  /* input paras */
 	if(thread_num==-1)
 		thread_num = 1;
 	
+	/* check whether mic thread num is valid */
+	if(mic_thread==-1)
+		mic_thread = 0;
+	
 	/* check whether output file is set */
 	if(strcmp(output, "unset")==0)
 	{
