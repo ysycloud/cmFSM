@@ -1,6 +1,6 @@
 #programs,flags,etc.
 INCLUDE	=	-I include
-TARGET = paraGSpan
+TARGET = cmFSM
 SOURCE = src/main.cpp src/Graph.cpp src/Traveler.cpp src/SubTraveler.cpp src/Methods.cpp src/Global.cpp src/Supervisor.cpp src/IO.cpp
 
 #ALL Phony Targets
@@ -12,7 +12,7 @@ clean:
 	rm -f $(TARGET)
 all:	clean everything
 	
-paraGSpan:	src/main.cpp	\
+cmFSM:	src/main.cpp	\
 			src/Graph.cpp include/Graph.h	\
 			src/Traveler.cpp include/Traveler.h	\
 			src/SubTraveler.cpp include/SubTraveler.h	\
@@ -21,4 +21,4 @@ paraGSpan:	src/main.cpp	\
 			src/Supervisor.cpp include/Supervisor.h	\
 			src/IO.cpp include/IO.h	\
 			include/EdgeFrequency.h
-	mpicxx $(INCLUDE) -w -g -fopenmp -o paraGSpan $(SOURCE) -O2
+	mpicxx $(INCLUDE) -g -fopenmp -o cmFSM $(SOURCE) -O2

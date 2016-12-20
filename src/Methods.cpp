@@ -332,7 +332,7 @@ void paraFreqGraphMining(GraphCode &gc, int next, int thread_num)
 	}	
 }
 
-void singleEdgeGraphMining(const Edge &e)
+void singleEdgeGraphMining(const Edge &e, int thread_num)
 {
 	GraphCode gc;
 	gc.seq.push_back(&e);

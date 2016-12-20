@@ -1,4 +1,9 @@
 #include "IO.h"
+
+void Usage()
+{
+	fprintf(stderr, "%s\n", USAGE);
+}
  
 void parse_params(int argc, char **argv, int my_rank, char *input, char *output, float &min_Support_Rate, int &division_way, int &thread_num)
 {
@@ -9,12 +14,24 @@ void parse_params(int argc, char **argv, int my_rank, char *input, char *output,
 		if(argc == 1)
 			Usage();		
 	}
-	MPI_Bcast(&argc, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	
 	if(argc == 1)
 	{
 		MPI_Finalize();
 		exit(0);
 	}
+	
+	//initiate parameters
+	// Unset flags (value -1).
+	min_Support_Rate = -1;
+	division_way = -1;
+	thread_num = -1;
+    // Unset options (value 'UNSET').
+    strcpy(input,"unset");
+	strcpy(output,"unset");
+	
+//	if(my_rank==0)
+//		printf("input:%s\toutput:%s\t%f\t%d\t%d\n",input,output,min_Support_Rate,division_way,thread_num);
 	
 	int c;
 	while (1) {
@@ -40,9 +57,10 @@ void parse_params(int argc, char **argv, int my_rank, char *input, char *output,
 			break;
 
 		case 'i':
-			if (input == UNSET) 
+			if (strcmp(input, "unset")==0) 
 			{
-				input = optarg;
+				//input = (char *)malloc(sizeof(char)*(strlen(optarg)+1));
+				strcpy(input,optarg);
 			}
 			else 
 			{
@@ -57,9 +75,10 @@ void parse_params(int argc, char **argv, int my_rank, char *input, char *output,
 			break;
 		
 		case 'o':
-			if (output == UNSET) 
+			if (strcmp(output, "unset")==0) 
 			{
-				output = optarg;
+				//output = (char *)malloc(sizeof(char)*(strlen(optarg)+1));
+				strcpy(output,optarg);
 			}
 			else 
 			{
@@ -100,7 +119,7 @@ void parse_params(int argc, char **argv, int my_rank, char *input, char *output,
 		case 'd':
 			if (division_way < 0) {
 				division_way = atof(optarg);
-				if (division_way < 0 || division_way >3) {
+				if (division_way < 0 || division_way >4) {
 					if(my_rank==0)
 					{
 						fprintf(stderr, "%d --division must be a integer value among 0,1,2,3,4\n", ERRM);
@@ -179,13 +198,14 @@ void parse_params(int argc, char **argv, int my_rank, char *input, char *output,
 	if(thread_num==-1)
 		thread_num = 1;
 	
-	if(output == UNSET)
+	if(strcmp(output, "unset")==0)
 	{
 		if(my_rank==0)
 			fprintf(stderr, "[ param error : -o ] please input the output file path!\n");
 		MPI_Finalize();
 		exit(0);
 	}
+	
 }
 
 void load_data()

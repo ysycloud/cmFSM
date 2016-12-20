@@ -9,13 +9,15 @@ void supervisor(int size, int p)
 	{
 		if(count<size)  //allocate tasks
 		{
-			MPI_Recv(&current_rank , 1, MPI_INT, MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &status);
+			MPI_Recv(&current_rank , 1, MPI_INT, MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &status);			
+			//printf("%d:%d\n",current_rank,count);
 			MPI_Send(&count, 1, MPI_INT, current_rank, 0, MPI_COMM_WORLD);		
 		}
 		else  //tasks is allocated over,reply -1 to every process
 		{
 			int end=-1;
 			MPI_Recv(&current_rank , 1, MPI_INT, MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &status);
+			//printf("%d:-1\n",current_rank);
 			MPI_Send(&end, 1, MPI_INT, current_rank, 0, MPI_COMM_WORLD);
 		}
 		count++;

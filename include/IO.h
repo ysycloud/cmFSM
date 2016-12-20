@@ -2,18 +2,21 @@
 #define IO_H
 #include <stdio.h>  
 #include <stdlib.h> 
+#include <string.h> 
 #include <unistd.h> 
 #include <getopt.h>
 #include <assert.h>
 #include "Global.h" 
 #include "mpi.h"
 
+#define ERRM "cmFSM error:"
+
 using namespace std;
  
-const char *USAGE =
+static const char *USAGE =
 "\n"
 "Usage:"
-"  paraGSpan [options]\n"
+"  cmFSM [options]\n"
 "\n"
 "  general options:\n"
 "    -s --support: The minimal value of support rates\n"
@@ -23,12 +26,10 @@ const char *USAGE =
 "  input/output options: \n"
 "    -i --input: input file of graph set information. \n"
 "    -o --output: the output file of frequent subgraph results. \n";
+	
+//static char * const UNSET = "unset";
 
-void Usage()
-{
-	fprintf(stderr, "%s\n", USAGE);
-}
-
+void Usage();
 void parse_params(int argc, char **argv, int my_rank, char *input, char *output, float &min_Support_Rate, int &division_way, int &thread_num);
 void load_data();
 void write_results();

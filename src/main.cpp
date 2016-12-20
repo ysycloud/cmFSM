@@ -15,8 +15,6 @@
    
 using namespace std;  
 
-#define ERRM "gSpan error:"
-
 const int LABEL_MAX = 1000;
  
 int main(int argc, char **argv)  
@@ -34,19 +32,19 @@ int main(int argc, char **argv)
     MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
 
     /* Find out how many processes are being used */
-    MPI_Comm_size(MPI_COMM_WORLD, &p);
-	 
-    /* parse command line options */
-	// Unset flags (value -1).
-	float min_Support_Rate = -1;
-	int division_way = -1;
-	int thread_num = -1;
-    // Unset options (value 'UNSET').
-	char * const UNSET = "unset";
-    char * input = UNSET;
-	char * output = UNSET;
-		
+    MPI_Comm_size(MPI_COMM_WORLD, &p); 
+    
+	float min_Support_Rate;
+	int division_way;
+	int thread_num;
+    char input[100];
+	char output[100];
+	
+	/* parse command line options */
 	parse_params(argc, argv, my_rank, input, output, min_Support_Rate, division_way, thread_num);
+	
+//	if(my_rank==0)
+//		printf("input:%s\toutput:%s\t%f\t%d\t%d\n",input,output,min_Support_Rate,division_way,thread_num);
 		
 	GET_TIME(start);
 			
@@ -55,7 +53,17 @@ int main(int argc, char **argv)
     memset(freq_node_label, 0, sizeof(freq_node_label));  
     memset(freq_edge_label, 0, sizeof(freq_edge_label));  
     GraphData *gd = NULL;  
-    vector<GraphData *> v_gd;  
+    vector<GraphData *> v_gd; 
+	
+	FILE *fp;
+	if((fp=fopen(input,"r"))==NULL)
+	{
+		if(my_rank==0)
+			fprintf(stderr, "[ param error : -i ] can not open input '%s' file\n", input);
+		MPI_Finalize();
+		exit(0);
+	}
+	
     while (1)  
     {  
         static char dummy[10];
@@ -345,6 +353,9 @@ int main(int argc, char **argv)
 			case 3:
 				printf("the division strategy among processes : circle\n");
 				break;
+			case 4:
+				printf("the division strategy among processes : dynamic\n");
+				break;
 			default:
 				break;
 		}
@@ -367,7 +378,7 @@ int main(int argc, char **argv)
 			if( i<single_edge_graph.size() )
 			{
 				Edge e = single_edge_graph[i];
-				singleEdgeGraphMining(e);
+				singleEdgeGraphMining(e, thread_num);
 			}
 		}
 	}
@@ -383,7 +394,7 @@ int main(int argc, char **argv)
 			if( index[i]<single_edge_graph.size() )
 			{
 				Edge e = single_edge_graph[index[i]];
-				singleEdgeGraphMining(e); 
+				singleEdgeGraphMining(e, thread_num); 
 			}
 		}
 		delete index;
@@ -395,21 +406,24 @@ int main(int argc, char **argv)
 			for(int i=0; i<single_edge_graph.size() ; i++)
 			{
 				Edge e = single_edge_graph[i];
-				singleEdgeGraphMining(e); 
+				singleEdgeGraphMining(e, thread_num); 
 			}
 		}
 		else  //not only one process, startup supervisor in process0
 		{
 			if(my_rank==0)
+			{
+				printf("start up supervisor!!!\n");
 				supervisor(single_edge_graph.size(),p);
+			}			
 			else
 			{
 				int pos = request_edge_id(my_rank); 
 				while( pos != -1 )
 				{
 					Edge e = single_edge_graph[pos];
-					singleEdgeGraphMining(e);		
-					pos = request_edge_id();
+					singleEdgeGraphMining(e, thread_num);		
+					pos = request_edge_id(my_rank);
 				}
 			}
 		}
