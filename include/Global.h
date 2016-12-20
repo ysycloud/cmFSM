@@ -4,6 +4,8 @@
 #include "Graph.h"
 #include "EdgeFrequency.h"
   
+extern const int LABEL_MAX;
+extern const int FILE_NAME_MAX;
 extern int min_support;  
 extern int nr_graph;  
 extern struct Graph *GS;     

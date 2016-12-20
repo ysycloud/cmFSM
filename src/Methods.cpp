@@ -63,6 +63,163 @@ void split_data_circle(int size, int n, int my_rank, int* index, int* local_n)
 	}
 }
 
+void pretreatment(int my_rank, int thread_num, const vector<GraphData *> &v_gd, int *freq_node_label, int *freq_edge_label, int *rank_to_node_label, int *rank_to_edge_label, int &max_node_label, int &max_edge_label)
+{
+	/* sort labels of vertices and edges in GS by their frequency */  
+    int rank_node_label[LABEL_MAX + 1], rank_edge_label[LABEL_MAX + 1];
+    for (int i = 0; i <= LABEL_MAX; ++i)  
+    {  
+        rank_node_label[i] = i;  
+        rank_edge_label[i] = i;  
+    }  
+    for (int i = LABEL_MAX; i > 0; --i)  
+    {  
+        for (int j = 0; j < i; ++j)  
+        {  
+            int tmp;  
+            if (freq_node_label[rank_node_label[j]] < freq_node_label[rank_node_label[j + 1]])  
+            {  
+                tmp = rank_node_label[j];  
+                rank_node_label[j] = rank_node_label[j + 1];  
+                rank_node_label[j + 1] = tmp;  
+            }  
+            if (freq_edge_label[rank_edge_label[j]] < freq_edge_label[rank_edge_label[j + 1]])  
+            {  
+                tmp = rank_edge_label[j];  
+                rank_edge_label[j] = rank_edge_label[j + 1];  
+                rank_edge_label[j + 1] = tmp;  
+            }  
+        }  
+    }  
+  
+    /* remove infrequent vertices and edges */  
+    /* ralabel the remaining vertices and edges in descending frequency */    
+    for (int i = 0; i <= LABEL_MAX; ++i)  
+    {  
+        if (freq_node_label[rank_node_label[i]] >= min_support)  
+            max_node_label = i;  
+        if (freq_edge_label[rank_edge_label[i]] >= min_support)  
+            max_edge_label = i;  
+    }
+
+//	if(my_rank==0)	
+//		printf("remaining max vertex, edge label: %d, %d\n", max_node_label, max_edge_label);  
+  
+    memcpy(rank_to_node_label, rank_node_label, sizeof(rank_node_label));  
+    for (int i = 0; i <= LABEL_MAX; ++i)  
+        rank_node_label[rank_to_node_label[i]] = i;  
+    memcpy(rank_to_edge_label, rank_edge_label, sizeof(rank_edge_label));  
+    for (int i = 0; i <= LABEL_MAX; ++i)  
+        rank_edge_label[rank_to_edge_label[i]] = i;  
+  
+    for (size_t i = 0; i < v_gd.size(); ++i)  
+    {  
+        GraphData &gd = *v_gd[i];  
+        for (size_t j = 0; j < gd.nodel.size(); ++j)  
+        {  
+            if (freq_node_label[gd.nodel[j]] < min_support)  
+                gd.nodev[j] = false;  
+            else  
+                gd.nodel[j] = rank_node_label[gd.nodel[j]];  
+        }  
+        for (size_t j = 0; j < gd.edgel.size(); ++j)  
+        {  
+            if (!gd.nodev[gd.edgex[j]] || !gd.nodev[gd.edgey[j]])  
+            {  
+                gd.edgev[j] = false;  
+                continue;  
+            }  
+            if (freq_edge_label[gd.edgel[j]] < min_support)  
+                gd.edgev[j] = false;  
+            else  
+                gd.edgel[j] = rank_edge_label[gd.edgel[j]];  
+        }  
+  
+        /* re-map vertex index */  
+        map<int, int> m;  
+        int cur = 0;  
+        for (size_t j = 0; j < gd.nodel.size(); ++j)  
+        {  
+            if (!gd.nodev[j]) continue;  
+            m[j] = cur++;  
+        }  
+        for (size_t j = 0; j < gd.edgel.size(); ++j)  
+        {  
+            if (!gd.edgev[j]) continue;  
+            gd.edgex[j] = m[gd.edgex[j]];  
+            gd.edgey[j] = m[gd.edgey[j]];  
+        }  
+    }  
+  
+    /* build graph set */  
+    nr_graph = (int)v_gd.size();  
+    GS = new Graph[nr_graph];  
+    for (int i = 0; i < nr_graph; ++i)  
+    {  
+        Graph &g = GS[i];  
+        GraphData &gd = *v_gd[i];  
+        for (size_t j = 0; j < gd.nodel.size(); ++j)  
+            if (gd.nodev[j])  
+                g.node_label.push_back(gd.nodel[j]);  
+        g.edge_next = new vector<int>[g.node_label.size()];  
+        g.edge_label = new vector<int>[g.node_label.size()];  
+        for (size_t j = 0; j < gd.edgel.size(); ++j)  
+        {  
+            if (!gd.edgev[j]) continue;  
+            g.edge_label[gd.edgex[j]].push_back(gd.edgel[j]);  
+            g.edge_label[gd.edgey[j]].push_back(gd.edgel[j]);  
+            g.edge_next[gd.edgex[j]].push_back(gd.edgey[j]);  
+            g.edge_next[gd.edgey[j]].push_back(gd.edgex[j]);  
+        }  
+    }  
+	
+	/* find all subgraphs with only one vertex for reference(only root process record once) */
+	if(my_rank==0)
+	{
+		for (int i = 0; i <= max_node_label; ++i)  
+		{  
+			Graph *g = new Graph;  
+			g->node_label.push_back(i);  
+			for (int j = 0; j < nr_graph; ++j)  
+			{  
+				const Graph &G = GS[j];  
+				for (size_t k = 0; k < G.node_label.size(); ++k)  
+				{  
+					if (G.node_label[k] == i)  
+					{  
+						g->gs.push_back(j);  
+						break;  
+					}  
+				}  
+			}  
+			S.push_back(g);  
+		}
+		if(my_rank==0)	
+			printf("single_vertex_graph_num: %d\n", S.size());  		
+	}
+
+    /* enumerate all frequent 1-edge graphs in GS */  
+    EF.init(max_node_label, max_edge_label);
+	
+	#pragma omp parallel for num_threads(thread_num) schedule(dynamic)	
+    for (int x = 0; x <= max_node_label; ++x)  
+    {  
+        for (int a = 0; a <= max_edge_label; ++a)  
+        {  
+            for (int y = x; y <= max_node_label; ++y)  
+            {  
+                int count = 0;  
+                for (int i = 0; i < nr_graph; ++i)  
+                    if (GS[i].hasEdge(x, a, y))  
+                        count++;  
+                EF(x, a, y) = count;  
+                EF(y, a, x) = count;  
+            }  
+        }  
+    } 
+	
+}
+
 void subgraph_mining(GraphCode &gc, int next)
 {  
     /* construct graph from DFS code */  

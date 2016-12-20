@@ -31,7 +31,7 @@ static const char *USAGE =
 
 void Usage();
 void parse_params(int argc, char **argv, int my_rank, char *input, char *output, float &min_Support_Rate, int &division_way, int &thread_num);
-void load_data();
-void write_results();
+void load_data(char *input, vector<GraphData *> &v_gd, int *freq_node_label, int *freq_edge_label);
+void write_results(char *output, int my_rank, int *rank_to_node_label, int *rank_to_edge_label);
 
 #endif
