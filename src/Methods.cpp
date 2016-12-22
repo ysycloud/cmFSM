@@ -221,7 +221,6 @@ void pretreatment(int my_rank, int thread_num, const vector<GraphData *> &v_gd, 
             }  
         }  
     } 
-	
 }
 
 void subgraph_mining(GraphCode &gc, int next)
@@ -493,22 +492,27 @@ void paraFreqGraphMining(GraphCode &gc, int next, int thread_num)
 	}	
 }
 
-void singleEdgeGraphMining(const Edge &e, int thread_num)
+void singleEdgeGraphMining(const Edge &e, vector<Edge> &single_edge_graph, int thread_num, int begin, int end)
 {
+	// GS <- GS - es (make sure the results will not rebundant)
+	for(int i=begin; i < end; i++)
+	{
+		Edge tmp_e = single_edge_graph[i];
+		for (int j = 0; j < nr_graph; j++)  
+			GS[j].removeEdge(tmp_e.x, tmp_e.a, tmp_e.y); 
+	}
+		
 	GraphCode gc;
 	gc.seq.push_back(&e);
 	for (int j = 0; j < nr_graph; ++j)  
 		if (GS[j].hasEdge(e.x, e.a, e.y))  
 			gc.gs.push_back(j);  
 				
-		//begin to mining frequent subgraph
-		//subgraph_mining(gc, 2);
-		if(thread_num == 1)
-			freqGraphMining(gc, 2);
-		else
-			paraFreqGraphMining(gc, 2, thread_num);
+	//begin to mining frequent subgraph
+	//subgraph_mining(gc, 2);
+	if(thread_num == 1)
+		freqGraphMining(gc, 2);
+	else
+		paraFreqGraphMining(gc, 2, thread_num);
 				
-		// GS <- GS - e 
-		for (int j = 0; j < nr_graph; j++)  
-			GS[j].removeEdge(e.x, e.a, e.y); 
 }

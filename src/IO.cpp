@@ -225,7 +225,7 @@ void parse_params(int argc, char **argv, int my_rank,  /* input paras */
 	
 	/* check whether division strategy is valid */
 	if(division_way==-1)
-		division_way = 2;
+		division_way = 4;
 	
 	/* check whether thread_num is valid */
 	if(thread_num==-1)

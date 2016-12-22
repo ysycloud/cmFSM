@@ -20,7 +20,7 @@ static const char *USAGE =
 "\n"
 "  general options:\n"
 "    -s --support: The minimal value of support rates\n"
-"    -d --division: the division strategy among processes[default:2] \n"
+"    -d --division: the division strategy among processes[default:4] \n"
 "    	0: equality; 1: single; 2: increment; 3: circle; 4: dynamic. \n"
 "    -t --thread: the number of threads in per process_num[default:1].\n"
 "    -m --micthread: the number of threads in per mic[default:0 not use mic].\n"

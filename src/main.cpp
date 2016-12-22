@@ -8,7 +8,7 @@
 #include <map>  
 #include <set>
 #include "IO.h"
-#include "Methods.h"
+#include "MicFunc.h"
 #include "Supervisor.h"
 #include "mpi.h"
 
@@ -135,6 +135,7 @@ int main(int argc, char **argv)
 		}
 	}
 	
+	int pre = 0; //record untill which single edge graph did not deleted from last iteration in GS 
 	// using different division strategy to mine frequent subgraph among processes
 	if(division_way>=0&&division_way<=2)
 	{
@@ -146,14 +147,19 @@ int main(int argc, char **argv)
 			split_data_single(single_edge_graph.size(), p, my_rank, &begin, &end, &local_n);	
 		else if(division_way==2)
 			split_data_increment(single_edge_graph.size(), p, my_rank, &begin, &end, &local_n);	
+				
 		for(int i=begin; i<end ; i++)
 		{
 			//make sure won't over the vector limit when processes are too much
 			if( i<single_edge_graph.size() )
 			{
 				Edge e = single_edge_graph[i];
-				singleEdgeGraphMining(e, thread_num);
+				if(mic_thread==0)
+					singleEdgeGraphMining(e, single_edge_graph, thread_num, pre, i);
+				else
+					cmsingleEdgeGraphMining(my_rank, e, single_edge_graph, thread_num, pre, i, mic_thread);
 			}
+			pre = i;
 		}
 	}
 	else if(division_way == 3)  //circle split
@@ -168,8 +174,12 @@ int main(int argc, char **argv)
 			if( index[i]<single_edge_graph.size() )
 			{
 				Edge e = single_edge_graph[index[i]];
-				singleEdgeGraphMining(e, thread_num); 
+				if(mic_thread==0)
+					singleEdgeGraphMining(e, single_edge_graph, thread_num, pre, index[i]); 
+				else
+					cmsingleEdgeGraphMining(my_rank, e, single_edge_graph, thread_num, pre, index[i], mic_thread);				
 			}
+			pre = index[i];
 		}
 		delete index;
 	}
@@ -180,14 +190,18 @@ int main(int argc, char **argv)
 			for(int i=0; i<single_edge_graph.size() ; i++)
 			{
 				Edge e = single_edge_graph[i];
-				singleEdgeGraphMining(e, thread_num); 
-			}
+				if(mic_thread==0)
+					singleEdgeGraphMining(e, single_edge_graph, thread_num, pre, i); 
+				else
+					cmsingleEdgeGraphMining(my_rank, e, single_edge_graph, thread_num, pre, i, mic_thread);
+				pre = i;				
+			}		
 		}
 		else  //not only one process, startup supervisor in process0
 		{
 			if(my_rank==0)
 			{
-				printf("start up supervisor!!!\n");
+				printf("rank:0 ---> start up supervisor!!!\n");
 				supervisor(single_edge_graph.size(),p);
 			}			
 			else
@@ -196,7 +210,11 @@ int main(int argc, char **argv)
 				while( pos != -1 )
 				{
 					Edge e = single_edge_graph[pos];
-					singleEdgeGraphMining(e, thread_num);		
+					if(mic_thread==0)
+						singleEdgeGraphMining(e, single_edge_graph, thread_num, pre, pos); 
+					else
+						cmsingleEdgeGraphMining(my_rank, e, single_edge_graph, thread_num, pre, pos, mic_thread);
+					pre = pos;
 					pos = request_edge_id(my_rank);
 				}
 			}

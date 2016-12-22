@@ -36,7 +36,7 @@ e 0 1 3      (edge from node 1 to node 2, with label 3)
 Usage:	paraGSpan [options]
 	general options:
 		-s --support: The minimal value of support rates(0-1).
-		-d --division: the division strategy among processes[default:2].
+		-d --division: the division strategy among processes[default:4].
 			0: equality; 1: single; 2: increment; 3: circle; 4：dynamic
 		-t --thread: the number of threads in per process_num[default:1].
 		-m --micthread: the number of threads in per mic[default:0 not use mic]
