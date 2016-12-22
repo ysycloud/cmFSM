@@ -51,13 +51,23 @@ void freqGraphMiningfrom2edgesOnCPU(int my_rank, vector<GraphCode> two_edges_chi
 	vector<GraphCode> tmp_global_child_gcs;
 	vector<int> tmp_global_nexts;
 	
-	int cpu_len =  two_edges_child_gcs.size()/2;
+	int n = two_edges_child_gcs.size();
+	int cpu_len,iternum=0;
+	
+	if(n%2==0)
+		cpu_len = n/2;
+	else
+		cpu_len = n/2+1;
+	
+	int* index = new int[cpu_len];
+	split_data_interval(n, 0, index);
 	
 	current_global_child_gcs.swap(two_edges_child_gcs);
 	current_global_nexts.swap(two_edges_nexts);
 	//submining per level in cpu
 	while(cpu_len != 0)
 	{
+		iternum++;
 		#pragma omp parallel num_threads(thread_num)
 		{		
 			
@@ -69,8 +79,13 @@ void freqGraphMiningfrom2edgesOnCPU(int my_rank, vector<GraphCode> two_edges_chi
 			#pragma omp for schedule(dynamic)
 			for(size_t i=0; i<cpu_len; i++)
 			{
+				int pos;
+				if(iternum == 1)
+					pos = index[i];
+				else
+					pos = i;
 				//carry out current child's one edge expansion
-				one_edge_expansion(current_global_child_gcs[i], current_global_nexts[i], local_child_gcs, local_nexts);
+				one_edge_expansion(current_global_child_gcs[pos], current_global_nexts[pos], local_child_gcs, local_nexts);
 					
 				//add the current child's expansion to local result
 				current_local_child_gcs.insert(current_local_child_gcs.end(), local_child_gcs.begin(), local_child_gcs.end());
@@ -99,7 +114,8 @@ void freqGraphMiningfrom2edgesOnCPU(int my_rank, vector<GraphCode> two_edges_chi
 			
 		//get the size of global results to judge whether continue next level mining
 		cpu_len = current_global_child_gcs.size();
-	}					
+	}	
+	delete index;	
 }
 
 void freqGraphMiningfrom2edgesOnMIC(int my_rank, vector<GraphCode> two_edges_child_gcs, vector<int> two_edges_nexts, int mic_thread, vector<Graph *> &MIC_S)
@@ -110,17 +126,22 @@ void freqGraphMiningfrom2edgesOnMIC(int my_rank, vector<GraphCode> two_edges_chi
 	vector<GraphCode> tmp_global_child_gcs;
 	vector<int> tmp_global_nexts;
 	
-	int mic_begin = two_edges_child_gcs.size()/2;
-	int mic_end = two_edges_child_gcs.size();
-	int mic_len = mic_end - mic_begin;
+	int n = two_edges_child_gcs.size();
+	int mic_len,iternum=0;
 	
-	if(my_rank == 0)
-		printf("MIC LEN:%d\n", mic_len);
+	mic_len = n/2;
+	
+	int* index = new int[mic_len];
+	split_data_interval(n, 1, index);
+	
+//	if(my_rank == 0)
+//		printf("MIC LEN:%d\n", mic_len);
 	current_global_child_gcs.swap(two_edges_child_gcs);
 	current_global_nexts.swap(two_edges_nexts);
 	//submining per level in cpu
 	while(mic_len != 0)
 	{
+		iternum++;
 		#pragma omp parallel num_threads(mic_thread)
 		{		
 			
@@ -130,10 +151,15 @@ void freqGraphMiningfrom2edgesOnMIC(int my_rank, vector<GraphCode> two_edges_chi
 			vector<int> current_local_nexts;
 			
 			#pragma omp for schedule(dynamic)
-			for(size_t i=mic_begin; i<mic_end; i++)
+			for(size_t i=0; i<mic_len; i++)
 			{
+				int pos;
+				if(iternum == 1)
+					pos = index[i];
+				else
+					pos = i;
 				//carry out current child's one edge expansion
-				one_edge_expansion_mic(current_global_child_gcs[i], current_global_nexts[i], local_child_gcs, local_nexts, MIC_S);
+				one_edge_expansion_mic(current_global_child_gcs[pos], current_global_nexts[pos], local_child_gcs, local_nexts, MIC_S);
 					
 				//add the current child's expansion to local result
 				current_local_child_gcs.insert(current_local_child_gcs.end(), local_child_gcs.begin(), local_child_gcs.end());
@@ -151,7 +177,7 @@ void freqGraphMiningfrom2edgesOnMIC(int my_rank, vector<GraphCode> two_edges_chi
 				tmp_global_nexts.insert(tmp_global_nexts.end(),current_local_nexts.begin(),current_local_nexts.end());
 			}
 		}
-		
+			
 		//swap tmp global results and global results
 		current_global_child_gcs.swap(tmp_global_child_gcs);
 		current_global_nexts.swap(tmp_global_nexts);
@@ -162,9 +188,8 @@ void freqGraphMiningfrom2edgesOnMIC(int my_rank, vector<GraphCode> two_edges_chi
 			
 		//get the size of global results to judge whether continue next level mining
 		mic_len = current_global_child_gcs.size();
-		mic_begin = 0;
-		mic_end = mic_len;
-	}					
+	}
+	delete index;		
 }
 
 void one_edge_expansion_mic(GraphCode &gc, int next, vector<GraphCode> &child_gcs, vector<int> &nexts, vector<Graph *> &MIC_S)
@@ -238,3 +263,29 @@ void one_edge_expansion_mic(GraphCode &gc, int next, vector<GraphCode> &child_gc
     } 
     g->gs.swap(gc.gs); 
 }
+
+void split_data_interval(int n, int rank, int* index)
+{
+	
+	int local_n = 0;
+	
+	if(n==0)
+		return;
+	
+	for(int i=0; i<n; i++)
+	{
+		if(i%2==0)
+		{
+			if(rank==0)  //cpu
+				index[local_n++] = i;
+		}
+		else
+		{
+			if(rank!=0)  //mic
+				index[local_n++] = i;
+		}
+	}
+
+}
+
+
