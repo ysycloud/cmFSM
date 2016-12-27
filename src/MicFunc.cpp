@@ -1,5 +1,6 @@
 #include "MicFunc.h"
 
+/*
 __attribute__((target(mic))) void funcheck(int i)
 {
 	#ifdef __MIC__
@@ -8,6 +9,7 @@ __attribute__((target(mic))) void funcheck(int i)
 		printf("Index on CPU:%d\n",i);
 	#endif
 }
+*/
 
 void cmsingleEdgeGraphMining(int my_rank, const Edge &e, vector<Edge> &single_edge_graph, int thread_num, int begin, int end, int mic_thread)
 {

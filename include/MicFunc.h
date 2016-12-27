@@ -3,7 +3,7 @@
 
 #include "Methods.h"
 
-__attribute__((target(mic))) void funcheck(int i);
+//__attribute__((target(mic))) void funcheck(int i);
 
 void cmsingleEdgeGraphMining(int my_rank, const Edge &e, vector<Edge> &single_edge_graph, int thread_num, int begin, int end, int mic_thread);
 void freqGraphMiningfrom2edgesOnCPU(int my_rank, vector<GraphCode> two_edges_child_gcs, vector<int> two_edges_nexts, int thread_num);

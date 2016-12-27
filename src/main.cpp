@@ -1,5 +1,6 @@
 #define _CRT_SECURE_NO_WARNINGS 1  
-  
+
+//#pragma offload_attribute (push, target(mic))
 #include <stdio.h>  
 #include <stdlib.h>  
 #include <string.h>  
@@ -11,7 +12,7 @@
 #include "MicFunc.h"
 #include "Supervisor.h"
 #include "mpi.h"
-
+//#pragma offload_attribute (pop)
    
 using namespace std;  
  
@@ -106,7 +107,6 @@ int main(int argc, char **argv)
 
 				Edge e(0, 1, x, a, y);				
 				single_edge_graph.push_back(e);
-  
 			}  
 		}  
 	} 

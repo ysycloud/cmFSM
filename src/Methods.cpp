@@ -21,7 +21,8 @@ void split_data_increment(int size, int n, int my_rank, int* begin, int* end, in
 		*end = (my_rank+1)*(my_rank+2)/2;
 	else
 		*end = size;
-	*local_n = my_rank+1;
+	
+	*local_n = *end - *begin;
 }
 
 void split_data_single(int size, int n, int my_rank, int* begin, int* end, int* local_n)
@@ -31,7 +32,7 @@ void split_data_single(int size, int n, int my_rank, int* begin, int* end, int* 
 		*end = my_rank+1;
 	else
 		*end = size;
-	*local_n = 1;
+	*local_n = *end - *begin;
 }
 
 void split_data_circle(int size, int n, int my_rank, int* index, int* local_n)

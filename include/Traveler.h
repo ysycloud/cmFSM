@@ -13,7 +13,7 @@ class Traveler
     const Graph &g;
     bool is_min;  
     vector<int> g2s;  
-    vector<vector<bool> > f;  
+    vector<vector<bool> > f;   
     void DFS(vector<int> &v, int c, int next);  
   
 public:  
