@@ -1,12 +1,10 @@
 #ifndef Traveler_H
 #define Traveler_H
-#include <vector>
-#include <assert.h> 
+
 #include "Graph.h"
 
-using namespace std;
-
-/* traverse a graph and find its minimal DFS code */  
+/* traverse a graph and find its minimal DFS code */ 
+#pragma offload_attribute (push, target(mic)) 
 class Traveler  
 {  
     const vector<const Edge *> &s;  
@@ -21,6 +19,8 @@ public:
     bool isMin() const { return is_min; }   
     void travel();
 };  
+#pragma offload_attribute (pop)
+
 
 
 #endif

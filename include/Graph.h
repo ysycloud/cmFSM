@@ -1,7 +1,22 @@
 #ifndef GRAPH_H
 #define GRAPH_H
+
+#pragma offload_attribute (push, target(mic)) 
+
+#include <stdio.h>  
+#include <stdlib.h>  
+#include <string.h>  
+#include <assert.h> 
+#include <vector>  
+#include <map>  
+#include <set>
+#include <unistd.h> 
+#include <getopt.h>
 #include <vector>
-  
+#include <time.h>  
+#include <sys/time.h>  
+#include <omp.h>
+
 using namespace std;
 
 class Graph
@@ -63,6 +78,11 @@ struct GraphCode
 {  
     vector<const Edge *> seq;  
     vector<int> gs;  
-};  
+}; 
+
+#pragma offload_attribute (pop)
+
+#include "mpi.h"
+
 
 #endif

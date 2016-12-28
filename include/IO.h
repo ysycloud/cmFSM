@@ -1,18 +1,10 @@
 #ifndef IO_H
 #define IO_H
-#include <stdio.h>  
-#include <stdlib.h> 
-#include <string.h> 
-#include <unistd.h> 
-#include <getopt.h>
-#include <assert.h>
+
 #include "Global.h" 
-#include "mpi.h"
 
 #define ERRM "paraGSpan error:"
 
-using namespace std;
- 
 static const char *USAGE =
 "\n"
 "Usage:"
@@ -40,6 +32,11 @@ void load_data(char *input, /* input paras */
 			vector<GraphData *> &v_gd, /* output paras */
 			int *freq_node_label, int *freq_edge_label  /* output paras */
 			);
+			
+#pragma offload_attribute (push, target(mic))
+
 void write_results(char *output, int my_rank, int *rank_to_node_label, int *rank_to_edge_label);
+
+#pragma offload_attribute (pop)
 
 #endif

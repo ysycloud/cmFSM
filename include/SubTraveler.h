@@ -1,12 +1,10 @@
 #ifndef SubTraveler_H
 #define SubTraveler_H
-#include <assert.h> 
-#include <vector>
-#include <set>
+
 #include "Graph.h"
 #include "EdgeFrequency.h"
 
-using namespace std;
+#pragma offload_attribute (push, target(mic)) 
 
 /* traverse a subgraph and find its children in graph */  
 class SubTraveler  
@@ -28,5 +26,7 @@ public:
         : s(_s), g(_g), c(_c), min_support(_min_support), EF(_EF){}    
     void travel(int _next);
 };
+
+#pragma offload_attribute (pop)
 
 #endif

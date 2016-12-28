@@ -2,7 +2,7 @@
 #define EdgeFrequency_H
 #include "Graph.h"
 
-using namespace std;
+#pragma offload_attribute (push, target(mic)) 
 
 class EdgeFrequency  
 {  
@@ -21,6 +21,6 @@ public:
   
     int operator()(int x, int a, int y) const { return array[x * v + a * u + y]; }  
 }; 
-
+#pragma offload_attribute (pop)
 
 #endif

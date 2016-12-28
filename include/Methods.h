@@ -1,20 +1,12 @@
 #ifndef METHODS_H
 #define METHODS_H
-#include <stdio.h>  
-#include <stdlib.h>  
-#include <string.h>  
-#include <vector>
-#include <set>
-#include <map> 
-#include <time.h>  
-#include <sys/time.h>  
+
 #include "Global.h"
 #include "Traveler.h"
 #include "SubTraveler.h"
-#include <omp.h>
 
-using namespace std;
 
+#pragma offload_attribute (push, target(mic)) 
 
 #define GET_TIME(now) { \
    struct timeval t; \
@@ -37,5 +29,7 @@ void one_edge_expansion(GraphCode &gc, int next, vector<GraphCode> &child_gcs, v
 void freqGraphMining(GraphCode &gc, int next);
 void paraFreqGraphMining(GraphCode &gc, int next, int thread_num);
 void singleEdgeGraphMining(const Edge &e, vector<Edge> &single_edge_graph, int thread_num, int begin, int end);
+
+#pragma offload_attribute (pop)
 
 #endif
