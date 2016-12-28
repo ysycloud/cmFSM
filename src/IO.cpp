@@ -337,7 +337,7 @@ void load_data(char *input, /* input paras */
     fclose(fp); 
 }
 
-void write_results(char *output, int my_rank, int *rank_to_node_label, int *rank_to_edge_label)
+void write_results(char *output, int my_rank)
 {
 	FILE *fp;
 	char Res[128];

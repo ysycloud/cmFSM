@@ -8,6 +8,8 @@
 
 extern const int LABEL_MAX;
 extern const int FILE_NAME_MAX;
+extern int rank_to_node_label[1001];
+extern int rank_to_edge_label[1001];
 extern int min_support;  
 extern int nr_graph;  
 extern struct Graph *GS;     

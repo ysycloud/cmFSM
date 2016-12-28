@@ -28,15 +28,16 @@ void parse_params(int argc, char **argv, int my_rank,  /* input paras */
 				float &min_Support_Rate, int &division_way, 
 				int &thread_num, int &mic_thread /* output paras */
 				);
+				
+#pragma offload_attribute (push, target(mic))
 void load_data(char *input, /* input paras */
 			vector<GraphData *> &v_gd, /* output paras */
 			int *freq_node_label, int *freq_edge_label  /* output paras */
 			);
-			
-#pragma offload_attribute (push, target(mic))
-
-void write_results(char *output, int my_rank, int *rank_to_node_label, int *rank_to_edge_label);
-
 #pragma offload_attribute (pop)
+
+void write_results(char *output, int my_rank);
+
+
 
 #endif

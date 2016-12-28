@@ -13,6 +13,9 @@ __attribute__((target(mic))) void funcheck(int i)
 
 void cmsingleEdgeGraphMining(int my_rank, const Edge &e, vector<Edge> &single_edge_graph, int thread_num, int begin, int end, int mic_thread)
 {
+	
+	int mic_num=2;
+		
 	// GS <- GS - es (make sure the results will not rebundant)
 	for(int i=begin; i < end; i++)
 	{
@@ -28,21 +31,60 @@ void cmsingleEdgeGraphMining(int my_rank, const Edge &e, vector<Edge> &single_ed
 			gc.gs.push_back(j);
 		
 	vector<GraphCode> two_edges_child_gcs;
-	vector<int> two_edges_nexts;	
+	vector<int> two_edges_nexts;
+	vector<GraphCode> two_edges_child_gcs_cpu;
+	vector<int> two_edges_nexts_cpu;
+	vector<GraphCode> two_edges_child_gcs_mic;
+	vector<int> two_edges_nexts_mic;
+	
 	//first expansion to get the children set(two edges frequent graph)
 	one_edge_expansion(gc, 2, two_edges_child_gcs, two_edges_nexts);
 	
-	if(my_rank == 0)
-		printf("ALL LEN:%d\n", two_edges_child_gcs.size());
+//	if(my_rank == 0)
+//		printf("ALL LEN:%d_micnum:%d\n", two_edges_child_gcs.size(),mic_num);
+	
+	int n = two_edges_child_gcs.size();
+	int cpu_len;
+	int* index1 = new int[n];
+	split_data_interval(n, mic_num+1, 0, index1, cpu_len);
+	for(int i=0;i<cpu_len;i++)
+	{
+		two_edges_child_gcs_cpu.push_back(two_edges_child_gcs[index1[i]]);
+		two_edges_nexts_cpu.push_back(two_edges_nexts[index1[i]]);
+	}
+	delete index1;
+	
+	//submining per level on CPU
+	freqGraphMiningfrom2edgesOnCPU(my_rank, two_edges_child_gcs_cpu, two_edges_nexts_cpu, thread_num);
+	
 	
 	//submining per level on MIC
 	vector<Graph *> MIC_S;
-	freqGraphMiningfrom2edgesOnMIC(my_rank, two_edges_child_gcs, two_edges_nexts, mic_thread, MIC_S);
 	
-	//submining per level on CPU
-	freqGraphMiningfrom2edgesOnCPU(my_rank, two_edges_child_gcs, two_edges_nexts, thread_num);
+//	constructGraphSetOnMIC();
 	
-	S.insert(S.end(), MIC_S.begin(), MIC_S.end());
+	int mic_len;
+	int *index2 = new int[n];
+	
+	for(int i=1;i<=mic_num;i++)
+	{
+		MIC_S.clear();
+		two_edges_child_gcs_mic.clear();
+		two_edges_nexts_mic.clear();
+		
+		split_data_interval(n, mic_num+1, i, index2, mic_len);
+		for(int i=0;i<mic_len;i++)
+		{
+			two_edges_child_gcs_mic.push_back(two_edges_child_gcs[index2[i]]);
+			two_edges_nexts_mic.push_back(two_edges_nexts[index2[i]]);
+		}
+		
+		freqGraphMiningfrom2edgesOnMIC(my_rank, two_edges_child_gcs_mic, two_edges_nexts_mic, mic_thread, MIC_S);
+		S.insert(S.end(), MIC_S.begin(), MIC_S.end());
+	}
+	delete index2;
+		
+	
 }
 
 void freqGraphMiningfrom2edgesOnCPU(int my_rank, vector<GraphCode> two_edges_child_gcs, vector<int> two_edges_nexts, int thread_num)
@@ -53,6 +95,7 @@ void freqGraphMiningfrom2edgesOnCPU(int my_rank, vector<GraphCode> two_edges_chi
 	vector<GraphCode> tmp_global_child_gcs;
 	vector<int> tmp_global_nexts;
 	
+	/*
 	int n = two_edges_child_gcs.size();
 	int cpu_len,iternum=0;
 	
@@ -63,13 +106,16 @@ void freqGraphMiningfrom2edgesOnCPU(int my_rank, vector<GraphCode> two_edges_chi
 	
 	int* index = new int[cpu_len];
 	split_data_interval(n, 0, index);
+	*/
+	
+	int cpu_len = two_edges_child_gcs.size();
 	
 	current_global_child_gcs.swap(two_edges_child_gcs);
 	current_global_nexts.swap(two_edges_nexts);
 	//submining per level in cpu
 	while(cpu_len != 0)
 	{
-		iternum++;
+		//iternum++;
 		#pragma omp parallel num_threads(thread_num)
 		{		
 			
@@ -81,13 +127,16 @@ void freqGraphMiningfrom2edgesOnCPU(int my_rank, vector<GraphCode> two_edges_chi
 			#pragma omp for schedule(dynamic)
 			for(size_t i=0; i<cpu_len; i++)
 			{
+				/*
 				int pos;
 				if(iternum == 1)
 					pos = index[i];
 				else
 					pos = i;
+				*/
+				
 				//carry out current child's one edge expansion
-				one_edge_expansion(current_global_child_gcs[pos], current_global_nexts[pos], local_child_gcs, local_nexts);
+				one_edge_expansion(current_global_child_gcs[i], current_global_nexts[i], local_child_gcs, local_nexts);
 					
 				//add the current child's expansion to local result
 				current_local_child_gcs.insert(current_local_child_gcs.end(), local_child_gcs.begin(), local_child_gcs.end());
@@ -117,7 +166,7 @@ void freqGraphMiningfrom2edgesOnCPU(int my_rank, vector<GraphCode> two_edges_chi
 		//get the size of global results to judge whether continue next level mining
 		cpu_len = current_global_child_gcs.size();
 	}	
-	delete index;	
+	//delete index;	
 }
 
 void freqGraphMiningfrom2edgesOnMIC(int my_rank, vector<GraphCode> two_edges_child_gcs, vector<int> two_edges_nexts, int mic_thread, vector<Graph *> &MIC_S)
@@ -128,6 +177,7 @@ void freqGraphMiningfrom2edgesOnMIC(int my_rank, vector<GraphCode> two_edges_chi
 	vector<GraphCode> tmp_global_child_gcs;
 	vector<int> tmp_global_nexts;
 	
+	/*
 	int n = two_edges_child_gcs.size();
 	int mic_len,iternum=0;
 	
@@ -135,6 +185,9 @@ void freqGraphMiningfrom2edgesOnMIC(int my_rank, vector<GraphCode> two_edges_chi
 	
 	int* index = new int[mic_len];
 	split_data_interval(n, 1, index);
+	*/
+	
+	int mic_len = two_edges_child_gcs.size();
 	
 //	if(my_rank == 0)
 //		printf("MIC LEN:%d\n", mic_len);
@@ -143,10 +196,9 @@ void freqGraphMiningfrom2edgesOnMIC(int my_rank, vector<GraphCode> two_edges_chi
 	//submining per level in cpu
 	while(mic_len != 0)
 	{
-		iternum++;
+		//iternum++;
 		#pragma omp parallel num_threads(mic_thread)
-		{		
-			
+		{					
 			vector<GraphCode> local_child_gcs;
 			vector<int> local_nexts;
 			vector<GraphCode> current_local_child_gcs;
@@ -155,13 +207,16 @@ void freqGraphMiningfrom2edgesOnMIC(int my_rank, vector<GraphCode> two_edges_chi
 			#pragma omp for schedule(dynamic)
 			for(size_t i=0; i<mic_len; i++)
 			{
+				/*
 				int pos;
 				if(iternum == 1)
 					pos = index[i];
 				else
 					pos = i;
+				*/
+				
 				//carry out current child's one edge expansion
-				one_edge_expansion_mic(current_global_child_gcs[pos], current_global_nexts[pos], local_child_gcs, local_nexts, MIC_S);
+				one_edge_expansion_mic(current_global_child_gcs[i], current_global_nexts[i], local_child_gcs, local_nexts, MIC_S);
 					
 				//add the current child's expansion to local result
 				current_local_child_gcs.insert(current_local_child_gcs.end(), local_child_gcs.begin(), local_child_gcs.end());
@@ -191,7 +246,7 @@ void freqGraphMiningfrom2edgesOnMIC(int my_rank, vector<GraphCode> two_edges_chi
 		//get the size of global results to judge whether continue next level mining
 		mic_len = current_global_child_gcs.size();
 	}
-	delete index;		
+	//delete index;		
 }
 
 void one_edge_expansion_mic(GraphCode &gc, int next, vector<GraphCode> &child_gcs, vector<int> &nexts, vector<Graph *> &MIC_S)
@@ -266,28 +321,188 @@ void one_edge_expansion_mic(GraphCode &gc, int next, vector<GraphCode> &child_gc
     g->gs.swap(gc.gs); 
 }
 
-void split_data_interval(int n, int rank, int* index)
+void split_data_interval(int n, int num, int order, int* index, int& local_n)
 {
 	
-	int local_n = 0;
+	local_n = 0;
 	
 	if(n==0)
 		return;
 	
 	for(int i=0; i<n; i++)
 	{
-		if(i%2==0)
-		{
-			if(rank==0)  //cpu
-				index[local_n++] = i;
-		}
-		else
-		{
-			if(rank!=0)  //mic
-				index[local_n++] = i;
+		if(i%num==order)
+		{	 //cpu,mic0,mic1...,mic[num-1]
+			index[local_n++] = i;
 		}
 	}
-
 }
 
+void constructGraphSetOnMIC(int mic_thread, const vector<GraphData *> &v_gd,  /* input paras */
+				int *freq_node_label, int *freq_edge_label,  /* input paras */
+				int &max_node_label, int &max_edge_label  /* output paras */)
+{
+		/* sort labels of vertices and edges in GS by their frequency */  
+    int rank_node_label[LABEL_MAX + 1], rank_edge_label[LABEL_MAX + 1];
+    for (int i = 0; i <= LABEL_MAX; ++i)  
+    {  
+        rank_node_label[i] = i;  
+        rank_edge_label[i] = i;  
+    }  
+    for (int i = LABEL_MAX; i > 0; --i)  
+    {  
+        for (int j = 0; j < i; ++j)  
+        {  
+            int tmp;  
+            if (freq_node_label[rank_node_label[j]] < freq_node_label[rank_node_label[j + 1]])  
+            {  
+                tmp = rank_node_label[j];  
+                rank_node_label[j] = rank_node_label[j + 1];  
+                rank_node_label[j + 1] = tmp;  
+            }  
+            if (freq_edge_label[rank_edge_label[j]] < freq_edge_label[rank_edge_label[j + 1]])  
+            {  
+                tmp = rank_edge_label[j];  
+                rank_edge_label[j] = rank_edge_label[j + 1];  
+                rank_edge_label[j + 1] = tmp;  
+            }  
+        }  
+    }  
+  
+    /* remove infrequent vertices and edges */  
+    /* ralabel the remaining vertices and edges in descending frequency */    
+    for (int i = 0; i <= LABEL_MAX; ++i)  
+    {  
+        if (freq_node_label[rank_node_label[i]] >= min_support)  
+            max_node_label = i;  
+        if (freq_edge_label[rank_edge_label[i]] >= min_support)  
+            max_edge_label = i;  
+    } 
+  
+    memcpy(rank_to_node_label, rank_node_label, sizeof(rank_node_label));  
+    for (int i = 0; i <= LABEL_MAX; ++i)  
+        rank_node_label[rank_to_node_label[i]] = i;  
+    memcpy(rank_to_edge_label, rank_edge_label, sizeof(rank_edge_label));  
+    for (int i = 0; i <= LABEL_MAX; ++i)  
+        rank_edge_label[rank_to_edge_label[i]] = i;  
+  
+    for (size_t i = 0; i < v_gd.size(); ++i)  
+    {  
+        GraphData &gd = *v_gd[i];  
+        for (size_t j = 0; j < gd.nodel.size(); ++j)  
+        {  
+            if (freq_node_label[gd.nodel[j]] < min_support)  
+                gd.nodev[j] = false;  
+            else  
+                gd.nodel[j] = rank_node_label[gd.nodel[j]];  
+        }  
+        for (size_t j = 0; j < gd.edgel.size(); ++j)  
+        {  
+            if (!gd.nodev[gd.edgex[j]] || !gd.nodev[gd.edgey[j]])  
+            {  
+                gd.edgev[j] = false;  
+                continue;  
+            }  
+            if (freq_edge_label[gd.edgel[j]] < min_support)  
+                gd.edgev[j] = false;  
+            else  
+                gd.edgel[j] = rank_edge_label[gd.edgel[j]];  
+        }  
+  
+        /* re-map vertex index */  
+        map<int, int> m;  
+        int cur = 0;  
+        for (size_t j = 0; j < gd.nodel.size(); ++j)  
+        {  
+            if (!gd.nodev[j]) continue;  
+            m[j] = cur++;  
+        }  
+        for (size_t j = 0; j < gd.edgel.size(); ++j)  
+        {  
+            if (!gd.edgev[j]) continue;  
+            gd.edgex[j] = m[gd.edgex[j]];  
+            gd.edgey[j] = m[gd.edgey[j]];  
+        }  
+    }  
+  
+    /* build graph set */  
+    nr_graph = (int)v_gd.size();  
+    GS = new Graph[nr_graph];  
+    for (int i = 0; i < nr_graph; ++i)  
+    {  
+        Graph &g = GS[i];  
+        GraphData &gd = *v_gd[i];  
+        for (size_t j = 0; j < gd.nodel.size(); ++j)  
+            if (gd.nodev[j])  
+                g.node_label.push_back(gd.nodel[j]);  
+        g.edge_next = new vector<int>[g.node_label.size()];  
+        g.edge_label = new vector<int>[g.node_label.size()];  
+        for (size_t j = 0; j < gd.edgel.size(); ++j)  
+        {  
+            if (!gd.edgev[j]) continue;  
+            g.edge_label[gd.edgex[j]].push_back(gd.edgel[j]);  
+            g.edge_label[gd.edgey[j]].push_back(gd.edgel[j]);  
+            g.edge_next[gd.edgex[j]].push_back(gd.edgey[j]);  
+            g.edge_next[gd.edgey[j]].push_back(gd.edgex[j]);  
+        }  
+    }  
+
+    /* enumerate all frequent 1-edge graphs in GS */  
+    EF.init(max_node_label, max_edge_label);
+	
+	#pragma omp parallel for num_threads(mic_thread) schedule(dynamic)	
+    for (int x = 0; x <= max_node_label; ++x)  
+    {  
+        for (int a = 0; a <= max_edge_label; ++a)  
+        {  
+            for (int y = x; y <= max_node_label; ++y)  
+            {  
+                int count = 0;  
+                for (int i = 0; i < nr_graph; ++i)  
+                    if (GS[i].hasEdge(x, a, y))  
+                        count++;  
+                EF(x, a, y) = count;  
+                EF(y, a, x) = count;  
+            }  
+        }  
+    } 
+}
+
+void write_resultsOnMIC(char *output)
+{
+	FILE *fp;
+	char Res[128];
+	//merge the output path for every process
+	sprintf(Res,"%s.txt",output);
+    fp = fopen(Res, "w");  
+    assert(fp);  
+    for (int i = 0; i < (int)S.size(); ++i)  
+    {  
+        const Graph &g = *S[i];  
+		fprintf(fp, "graph number: %d\n", i);  
+        fprintf(fp, "frequent number: %d\n", (int)g.gs.size());  
+		fprintf(fp, "oringal dataset graph list where it appeared:\n");  
+        for (size_t j = 0; j < g.gs.size(); ++j)  
+            fprintf(fp, " %d", g.gs[j]); 
+        fprintf(fp, "\n"); 
+		fprintf(fp, "node list:\n"); 		
+        for (size_t j = 0; j < g.node_label.size(); ++j)  
+            fprintf(fp, "v %d %d\n", (int)j, rank_to_node_label[g.node_label[j]]);  
+        if (g.node_label.size() < 2)  
+        {  
+            fprintf(fp, "\n");  
+            continue;  
+        } 
+		
+		fprintf(fp, "edge list:\n");	
+        for (int j = 0; j < (int)g.node_label.size(); ++j)  
+        {  
+            for (size_t k = 0; k < g.edge_label[j].size(); ++k)  
+                if (j < g.edge_next[j][k])  
+                    fprintf(fp, "e %d %d %d\n", j, g.edge_next[j][k], rank_to_edge_label[g.edge_label[j][k]]);  
+        }  
+        fprintf(fp, "\n");  
+    }  
+    fclose(fp);
+}
 

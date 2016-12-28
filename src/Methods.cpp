@@ -65,8 +65,7 @@ void split_data_circle(int size, int n, int my_rank, int* index, int* local_n)
 }
 
 void pretreatment(int my_rank, int thread_num, const vector<GraphData *> &v_gd,  /* input paras */
-				int *freq_node_label, int *freq_edge_label,  /* output paras */
-				int *rank_to_node_label, int *rank_to_edge_label,  /* output paras */
+				int *freq_node_label, int *freq_edge_label,  /* input paras */
 				int &max_node_label, int &max_edge_label  /* output paras */
 				)
 {

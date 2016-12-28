@@ -65,7 +65,6 @@ int main(int argc, char **argv)
 	if(my_rank==0)
 		printf("%d graphs with minSup = %d\n", (int)v_gd.size(), min_support);
 
-	int rank_to_node_label[LABEL_MAX + 1], rank_to_edge_label[LABEL_MAX + 1];
 	int max_node_label = 0, max_edge_label = 0;
 	/******* pretreatment ******/
 	/*******
@@ -76,7 +75,7 @@ int main(int argc, char **argv)
 	5.find all subgraphs with only one vertex for reference(only root process record once)
 	6.enumerate all frequent 1-edge graphs in GS
 	********/
-	pretreatment(my_rank, thread_num, v_gd, freq_node_label, freq_edge_label, rank_to_node_label, rank_to_edge_label, max_node_label, max_edge_label);
+	pretreatment(my_rank, thread_num, v_gd, freq_node_label, freq_edge_label, max_node_label, max_edge_label);
   
 	if(my_rank==0)
 	{
@@ -233,7 +232,7 @@ int main(int argc, char **argv)
 		printf("Found %d frequent subgraphs\n", gloal_fgraph_number);  
   
 	/*output mining results in every process*/ 
-	write_results(output, my_rank, rank_to_node_label, rank_to_edge_label);  
+	write_results(output, my_rank);  
   
 	if(my_rank==0)
 	{
