@@ -11,7 +11,7 @@ __attribute__((target(mic))) void funcheck(int i)
 }
 */
 
-void cmsingleEdgeGraphMining(int my_rank, const Edge &e, vector<Edge> &single_edge_graph, int thread_num, int begin, int end, int mic_thread)
+void cmsingleEdgeGraphMining(const Edge &e, vector<Edge> &single_edge_graph, int thread_num, int begin, int end, int mic_thread)
 {
 	
 	int mic_num=2;
@@ -40,9 +40,6 @@ void cmsingleEdgeGraphMining(int my_rank, const Edge &e, vector<Edge> &single_ed
 	//first expansion to get the children set(two edges frequent graph)
 	one_edge_expansion(gc, 2, two_edges_child_gcs, two_edges_nexts);
 	
-//	if(my_rank == 0)
-//		printf("ALL LEN:%d_micnum:%d\n", two_edges_child_gcs.size(),mic_num);
-	
 	int n = two_edges_child_gcs.size();
 	int cpu_len;
 	int* index1 = new int[n];
@@ -52,10 +49,180 @@ void cmsingleEdgeGraphMining(int my_rank, const Edge &e, vector<Edge> &single_ed
 		two_edges_child_gcs_cpu.push_back(two_edges_child_gcs[index1[i]]);
 		two_edges_nexts_cpu.push_back(two_edges_nexts[index1[i]]);
 	}
-	delete index1;
+	delete[] index1;
 	
 	//submining per level on CPU
-	freqGraphMiningfrom2edgesOnCPU(my_rank, two_edges_child_gcs_cpu, two_edges_nexts_cpu, thread_num);
+	freqGraphMiningfrom2edgesOnCPU(two_edges_child_gcs_cpu, two_edges_nexts_cpu, thread_num);	
+	
+	int mic_len;
+	int *index2 = new int[n];
+	
+	for(int i=1;i<=mic_num;i++)
+	{
+		two_edges_child_gcs_mic.clear();
+		two_edges_nexts_mic.clear();
+		
+		split_data_interval(n, mic_num+1, i, index2, mic_len);
+		for(int j=0;j<mic_len;j++)
+		{
+			two_edges_child_gcs_mic.push_back(two_edges_child_gcs[index2[j]]);
+			two_edges_nexts_mic.push_back(two_edges_nexts[index2[j]]);
+		}
+		
+		/* apply for space for preparing data to offload */
+		int offload_len = two_edges_child_gcs_mic.size();
+		int *ix = (int *)malloc((offload_len+1)*sizeof(int));
+		int *iy = (int *)malloc((offload_len+1)*sizeof(int));
+		int *x = (int *)malloc((offload_len+1)*sizeof(int));
+		int *a = (int *)malloc((offload_len+1)*sizeof(int));
+		int *y = (int *)malloc((offload_len+1)*sizeof(int));
+		int gs_len=0;
+		for(size_t j=0;j<offload_len;j++)
+		{
+			gs_len += two_edges_child_gcs_mic[j].gs.size();
+		}
+		gs_len += offload_len;
+		int *gs = (int *)malloc((gs_len)*sizeof(int));
+		int *nexts = (int *)malloc((offload_len)*sizeof(int));
+		
+		/* create bit-copyable data to offload */
+		createDataForOffload(two_edges_child_gcs_mic, two_edges_nexts_mic, ix, iy, x, a, y, gs, nexts);
+		
+		/* offload to mic to execute */
+		vector<GraphCode> two_edges_gcs;
+		vector<int> two_edges_nexts;
+		reconstructDataforMiningOnMIC(ix, iy, x, a, y, gs, nexts, offload_len, gs_len, two_edges_gcs, two_edges_nexts);
+		freqGraphMiningfrom2edgesOnMIC(two_edges_gcs, two_edges_nexts, mic_thread);	
+		
+		
+		delete[] ix;
+		delete[] iy;
+		delete[] x;
+		delete[] a;
+		delete[] y;
+		delete[] gs;
+		delete[] nexts;
+	}
+	delete[] index2;		
+}
+
+void createDataForOffload(vector<GraphCode> &two_edges_child_gcs_mic, vector<int> &two_edges_nexts_mic,   /* input paras */
+				int *ix, int *iy, int *x, int *a, int *y,  /* split edge parameters(n+1)  */ 
+				int *gs, /* combination of gss split by -1 */
+				int *nexts /* nexts(n) */)
+{
+	
+}
+
+void reconstructDataforMiningOnMIC(int *ix, int *iy, int *x, int *a, int *y,  /* input split edge parameters(offload_len+1)  */ 
+				int *gs, int *nexts, /* input combination of gss split by -1(gs_len) and nexts (offload_len) */ 
+				int offload_len, int gs_len, /* length of input parameters  */
+				vector<GraphCode> &two_edges_child_gcs_mic, vector<int> &two_edges_nexts_mic /* output  */)
+{
+					
+}
+
+void freqGraphMiningfrom2edgesOnMIC(vector<GraphCode> &two_edges_child_gcs, vector<int> &two_edges_nexts, int mic_thread)
+{
+
+	vector<GraphCode> current_global_child_gcs;
+	vector<int> current_global_nexts;
+	vector<GraphCode> tmp_global_child_gcs;
+	vector<int> tmp_global_nexts;	
+	
+	int mic_len = two_edges_child_gcs.size();
+	
+	current_global_child_gcs.swap(two_edges_child_gcs);
+	current_global_nexts.swap(two_edges_nexts);
+	//submining per level in cpu
+	while(mic_len != 0)
+	{	
+		#pragma omp parallel num_threads(mic_thread)
+		{					
+			vector<GraphCode> local_child_gcs;
+			vector<int> local_nexts;
+			vector<GraphCode> current_local_child_gcs;
+			vector<int> current_local_nexts;
+			
+			#pragma omp for schedule(dynamic)
+			for(size_t i=0; i<mic_len; i++)
+			{
+				//carry out current child's one edge expansion
+				one_edge_expansion(current_global_child_gcs[i], current_global_nexts[i], local_child_gcs, local_nexts);
+					
+				//add the current child's expansion to local result
+				current_local_child_gcs.insert(current_local_child_gcs.end(), local_child_gcs.begin(), local_child_gcs.end());
+				current_local_nexts.insert(current_local_nexts.end(), local_nexts.begin(), local_nexts.end());
+			
+				//clear current child's expansion to carry out the next child's expansion
+				local_child_gcs.clear();
+				local_nexts.clear();
+			}
+					
+			//merge local results into tmp global results  
+			#pragma omp critical
+			{
+				tmp_global_child_gcs.insert(tmp_global_child_gcs.end(),current_local_child_gcs.begin(),current_local_child_gcs.end());
+				tmp_global_nexts.insert(tmp_global_nexts.end(),current_local_nexts.begin(),current_local_nexts.end());
+			}
+		}
+			
+		//swap tmp global results and global results
+		current_global_child_gcs.swap(tmp_global_child_gcs);
+		current_global_nexts.swap(tmp_global_nexts);
+		
+		//clear tmp global results to carry out the next level mining
+		tmp_global_child_gcs.clear();
+		tmp_global_nexts.clear();
+			
+		//get the size of global results to judge whether continue next level mining
+		mic_len = current_global_child_gcs.size();
+	}		
+}
+
+
+void cmsingleEdgeGraphMining_simulationOnCPU(const Edge &e, vector<Edge> &single_edge_graph, int thread_num, int begin, int end, int mic_thread)
+{
+	
+	int mic_num=2;
+		
+	// GS <- GS - es (make sure the results will not rebundant)
+	for(int i=begin; i < end; i++)
+	{
+		Edge tmp_e = single_edge_graph[i];
+		for (int j = 0; j < nr_graph; j++)  
+			GS[j].removeEdge(tmp_e.x, tmp_e.a, tmp_e.y); 
+	}
+	
+	GraphCode gc;
+	gc.seq.push_back(&e);
+	for (int j = 0; j < nr_graph; ++j)  
+		if (GS[j].hasEdge(e.x, e.a, e.y))  
+			gc.gs.push_back(j);
+		
+	vector<GraphCode> two_edges_child_gcs;
+	vector<int> two_edges_nexts;
+	vector<GraphCode> two_edges_child_gcs_cpu;
+	vector<int> two_edges_nexts_cpu;
+	vector<GraphCode> two_edges_child_gcs_mic;
+	vector<int> two_edges_nexts_mic;
+	
+	//first expansion to get the children set(two edges frequent graph)
+	one_edge_expansion(gc, 2, two_edges_child_gcs, two_edges_nexts);
+		
+	int n = two_edges_child_gcs.size();
+	int cpu_len;
+	int* index1 = new int[n];
+	split_data_interval(n, mic_num+1, 0, index1, cpu_len);
+	for(int i=0;i<cpu_len;i++)
+	{
+		two_edges_child_gcs_cpu.push_back(two_edges_child_gcs[index1[i]]);
+		two_edges_nexts_cpu.push_back(two_edges_nexts[index1[i]]);
+	}
+	delete[] index1;
+	
+	//submining per level on CPU
+	freqGraphMiningfrom2edgesOnCPU( two_edges_child_gcs_cpu, two_edges_nexts_cpu, thread_num);
 	
 	
 	//submining per level on MIC
@@ -73,21 +240,19 @@ void cmsingleEdgeGraphMining(int my_rank, const Edge &e, vector<Edge> &single_ed
 		two_edges_nexts_mic.clear();
 		
 		split_data_interval(n, mic_num+1, i, index2, mic_len);
-		for(int i=0;i<mic_len;i++)
+		for(int j=0;j<mic_len;j++)
 		{
-			two_edges_child_gcs_mic.push_back(two_edges_child_gcs[index2[i]]);
-			two_edges_nexts_mic.push_back(two_edges_nexts[index2[i]]);
+			two_edges_child_gcs_mic.push_back(two_edges_child_gcs[index2[j]]);
+			two_edges_nexts_mic.push_back(two_edges_nexts[index2[j]]);
 		}
 		
-		freqGraphMiningfrom2edgesOnMIC(my_rank, two_edges_child_gcs_mic, two_edges_nexts_mic, mic_thread, MIC_S);
+		freqGraphMiningfrom2edgesOnMIC_simulation(two_edges_child_gcs_mic, two_edges_nexts_mic, mic_thread, MIC_S);
 		S.insert(S.end(), MIC_S.begin(), MIC_S.end());
 	}
-	delete index2;
-		
-	
+	delete[] index2;	
 }
 
-void freqGraphMiningfrom2edgesOnCPU(int my_rank, vector<GraphCode> two_edges_child_gcs, vector<int> two_edges_nexts, int thread_num)
+void freqGraphMiningfrom2edgesOnCPU(vector<GraphCode> &two_edges_child_gcs, vector<int> &two_edges_nexts, int thread_num)
 {
 
 	vector<GraphCode> current_global_child_gcs;
@@ -169,7 +334,7 @@ void freqGraphMiningfrom2edgesOnCPU(int my_rank, vector<GraphCode> two_edges_chi
 	//delete index;	
 }
 
-void freqGraphMiningfrom2edgesOnMIC(int my_rank, vector<GraphCode> two_edges_child_gcs, vector<int> two_edges_nexts, int mic_thread, vector<Graph *> &MIC_S)
+void freqGraphMiningfrom2edgesOnMIC_simulation(vector<GraphCode> &two_edges_child_gcs, vector<int> &two_edges_nexts, int mic_thread, vector<Graph *> &MIC_S)
 {
 
 	vector<GraphCode> current_global_child_gcs;
@@ -189,8 +354,6 @@ void freqGraphMiningfrom2edgesOnMIC(int my_rank, vector<GraphCode> two_edges_chi
 	
 	int mic_len = two_edges_child_gcs.size();
 	
-//	if(my_rank == 0)
-//		printf("MIC LEN:%d\n", mic_len);
 	current_global_child_gcs.swap(two_edges_child_gcs);
 	current_global_nexts.swap(two_edges_nexts);
 	//submining per level in cpu
@@ -216,7 +379,7 @@ void freqGraphMiningfrom2edgesOnMIC(int my_rank, vector<GraphCode> two_edges_chi
 				*/
 				
 				//carry out current child's one edge expansion
-				one_edge_expansion_mic(current_global_child_gcs[i], current_global_nexts[i], local_child_gcs, local_nexts, MIC_S);
+				one_edge_expansion_mic_simulation(current_global_child_gcs[i], current_global_nexts[i], local_child_gcs, local_nexts, MIC_S);
 					
 				//add the current child's expansion to local result
 				current_local_child_gcs.insert(current_local_child_gcs.end(), local_child_gcs.begin(), local_child_gcs.end());
@@ -249,7 +412,7 @@ void freqGraphMiningfrom2edgesOnMIC(int my_rank, vector<GraphCode> two_edges_chi
 	//delete index;		
 }
 
-void one_edge_expansion_mic(GraphCode &gc, int next, vector<GraphCode> &child_gcs, vector<int> &nexts, vector<Graph *> &MIC_S)
+void one_edge_expansion_mic_simulation(GraphCode &gc, int next, vector<GraphCode> &child_gcs, vector<int> &nexts, vector<Graph *> &MIC_S)
 {
 	/* construct graph from DFS code */  
     Graph *g = new Graph;  
@@ -339,10 +502,10 @@ void split_data_interval(int n, int num, int order, int* index, int& local_n)
 }
 
 void constructGraphSetOnMIC(int mic_thread, const vector<GraphData *> &v_gd,  /* input paras */
-				int *freq_node_label, int *freq_edge_label,  /* input paras */
-				int &max_node_label, int &max_edge_label  /* output paras */)
+				int *freq_node_label, int *freq_edge_label  /* input paras */ )
 {
-		/* sort labels of vertices and edges in GS by their frequency */  
+	int max_node_label=0, max_edge_label=0;
+	/* sort labels of vertices and edges in GS by their frequency */  
     int rank_node_label[LABEL_MAX + 1], rank_edge_label[LABEL_MAX + 1];
     for (int i = 0; i <= LABEL_MAX; ++i)  
     {  
@@ -468,12 +631,40 @@ void constructGraphSetOnMIC(int mic_thread, const vector<GraphData *> &v_gd,  /*
     } 
 }
 
+void prepareDataOnMIC(char *input , int mic_thread , float min_Support_Rate)
+{
+	int freq_node_label[LABEL_MAX + 1], freq_edge_label[LABEL_MAX + 1];
+	//we cannot memset the array in the function, 
+	//because the array is transfered into the function as a copying pointer,
+	//the sizeof will not work anymore
+	memset(freq_node_label, 0, sizeof(freq_node_label));  
+    memset(freq_edge_label, 0, sizeof(freq_edge_label));	
+    vector<GraphData *> v_gd;
+	/* load data from file */
+	char Res[128];
+	sprintf(Res,"/home/root/%s",input);  //add path prefix
+	load_data(Res, v_gd, freq_node_label, freq_edge_label);
+	
+	min_support = (int) (v_gd.size() * min_Support_Rate);
+	//min_support = v_gd.size() * 0.1;
+    if (min_support < 1)  
+        min_support = 1;
+	
+	constructGraphSetOnMIC(mic_thread, v_gd, freq_node_label, freq_edge_label);	
+}
+
 void write_resultsOnMIC(char *output)
 {
 	FILE *fp;
 	char Res[128];
-	//merge the output path for every process
-	sprintf(Res,"%s.txt",output);
+	/*
+	char *file_path_getcwd;
+    file_path_getcwd=(char *)malloc(80);
+    getcwd(file_path_getcwd,80);
+    printf("%s\n",file_path_getcwd);
+	*/	
+	//current path : "/var/volatile/tmp/coi_procs/1/xxx"	
+	sprintf(Res,"../../../%s.txt",output);  //the data can only be written in tmp directory
     fp = fopen(Res, "w");  
     assert(fp);  
     for (int i = 0; i < (int)S.size(); ++i)  

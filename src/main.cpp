@@ -35,6 +35,12 @@ int main(int argc, char **argv)
 	/* parse command line options */
 	parse_params(argc, argv, my_rank, input, output, min_Support_Rate, division_way, thread_num, mic_thread);
 	
+	#pragma offload target(mic:0) \
+			in(input:length(FILE_NAME_MAX)alloc_if(1) free_if(1)) in(min_Support_Rate) in(mic_thread)												
+			{
+				prepareDataOnMIC(input, mic_thread, min_Support_Rate);
+			}
+	
 //	if(my_rank==0)
 //		printf("input:%s\toutput:%s\t%f\t%d\t%d\n",input,output,min_Support_Rate,division_way,thread_num);
 		
@@ -148,7 +154,7 @@ int main(int argc, char **argv)
 				if(mic_thread==0)
 					singleEdgeGraphMining(e, single_edge_graph, thread_num, pre, i);
 				else
-					cmsingleEdgeGraphMining(my_rank, e, single_edge_graph, thread_num, pre, i, mic_thread);
+					cmsingleEdgeGraphMining_simulationOnCPU( e, single_edge_graph, thread_num, pre, i, mic_thread);
 			}
 			pre = i;
 		}
@@ -168,7 +174,7 @@ int main(int argc, char **argv)
 				if(mic_thread==0)
 					singleEdgeGraphMining(e, single_edge_graph, thread_num, pre, index[i]); 
 				else
-					cmsingleEdgeGraphMining(my_rank, e, single_edge_graph, thread_num, pre, index[i], mic_thread);				
+					cmsingleEdgeGraphMining_simulationOnCPU( e, single_edge_graph, thread_num, pre, index[i], mic_thread);				
 			}
 			pre = index[i];
 		}
@@ -184,7 +190,7 @@ int main(int argc, char **argv)
 				if(mic_thread==0)
 					singleEdgeGraphMining(e, single_edge_graph, thread_num, pre, i); 
 				else
-					cmsingleEdgeGraphMining(my_rank, e, single_edge_graph, thread_num, pre, i, mic_thread);
+					cmsingleEdgeGraphMining_simulationOnCPU( e, single_edge_graph, thread_num, pre, i, mic_thread);
 				pre = i;				
 			}		
 		}
@@ -204,7 +210,7 @@ int main(int argc, char **argv)
 					if(mic_thread==0)
 						singleEdgeGraphMining(e, single_edge_graph, thread_num, pre, pos); 
 					else
-						cmsingleEdgeGraphMining(my_rank, e, single_edge_graph, thread_num, pre, pos, mic_thread);
+						cmsingleEdgeGraphMining_simulationOnCPU( e, single_edge_graph, thread_num, pre, pos, mic_thread);
 					pre = pos;
 					pos = request_edge_id(my_rank);
 				}
@@ -221,6 +227,12 @@ int main(int argc, char **argv)
 		printf("Mining frequenct subgraph spend: %f seconds\n", duration);
 		GET_TIME(start);
 	}
+
+//  int size;
+//	#pragma offload target(mic:0) out(size)											
+//	{
+//		getResultsSizeOnMIC(size);
+//	}
 	
 	int local_fgraph_number = (int)S.size();
 	int gloal_fgraph_number;
@@ -231,6 +243,10 @@ int main(int argc, char **argv)
 	if(my_rank==0)
 		printf("Found %d frequent subgraphs\n", gloal_fgraph_number);  
   
+//	#pragma offload target(mic:0) in(output:length(FILE_NAME_MAX)alloc_if(1) free_if(1))											
+//	{
+//		write_resultsOnMIC(output);
+//	}
 	/*output mining results in every process*/ 
 	write_results(output, my_rank);  
   
