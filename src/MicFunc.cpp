@@ -14,7 +14,7 @@ __attribute__((target(mic))) void funcheck(int i)
 void cmsingleEdgeGraphMining(const Edge &e, vector<Edge> &single_edge_graph, int thread_num, int begin, int end, int mic_thread)
 {
 	
-	int mic_num=2;
+	int mic_num=1;
 		
 	// GS <- GS - es (make sure the results will not rebundant)
 	for(int i=begin; i < end; i++)
@@ -89,11 +89,20 @@ void cmsingleEdgeGraphMining(const Edge &e, vector<Edge> &single_edge_graph, int
 		createDataForOffload(two_edges_child_gcs_mic, two_edges_nexts_mic, ix, iy, x, a, y, gs, nexts);
 		
 		/* offload to mic to execute */
-		vector<GraphCode> two_edges_gcs;
-		vector<int> two_edges_nexts;
-		reconstructDataforMiningOnMIC(ix, iy, x, a, y, gs, nexts, offload_len, gs_len, two_edges_gcs, two_edges_nexts);
-		freqGraphMiningfrom2edgesOnMIC(two_edges_gcs, two_edges_nexts, mic_thread);	
-		
+		#pragma offload target(mic:0) \
+			in(ix:length(offload_len+1)alloc_if(1) free_if(1)) \
+			in(iy:length(offload_len+1)alloc_if(1) free_if(1)) \
+			in(x:length(offload_len+1)alloc_if(1) free_if(1)) \
+			in(a:length(offload_len+1)alloc_if(1) free_if(1)) \
+			in(y:length(offload_len+1)alloc_if(1) free_if(1)) \
+			in(gs:length(gs_len)alloc_if(1) free_if(1)) \
+			in(nexts:length(offload_len)alloc_if(1) free_if(1)) 			
+		{
+			vector<GraphCode> two_edges_gcs;
+			vector<int> two_edges_nexts;
+			reconstructDataforMiningOnMIC(ix, iy, x, a, y, gs, nexts, offload_len, gs_len, two_edges_gcs, two_edges_nexts);
+			freqGraphMiningfrom2edgesOnMIC(two_edges_gcs, two_edges_nexts, mic_thread);
+		}
 		
 		delete[] ix;
 		delete[] iy;
@@ -111,6 +120,39 @@ void createDataForOffload(vector<GraphCode> &two_edges_child_gcs_mic, vector<int
 				int *gs, /* combination of gss split by -1 */
 				int *nexts /* nexts(n) */)
 {
+	int offload_len = two_edges_child_gcs_mic.size();
+	int gs_len=0;
+	
+	/* deal with the first edge */
+	vector<const Edge *> &s = two_edges_child_gcs_mic[0].seq;
+	ix[0] = s[0]->ix;
+	iy[0] = s[0]->iy;
+	a[0] = s[0]->a; 
+    x[0] = s[0]->x;  
+    y[0] = s[0]->y;
+	
+	vector<int> per_gs;
+	for(int i = 0; i < offload_len; i++)
+	{
+		/* deal with the second edge */
+		vector<const Edge *> &ss = two_edges_child_gcs_mic[i].seq;
+		ix[i+1] = ss[1]->ix;
+		iy[i+1] = ss[1]->iy;
+		a[i+1] = ss[1]->a; 
+		x[i+1] = ss[1]->x;  
+		y[i+1] = ss[1]->y;
+		
+		/* deal with the gs */
+		per_gs = two_edges_child_gcs_mic[i].gs;
+		for(int j=0;j<per_gs.size();j++)
+		{
+			gs[gs_len++] = per_gs[j];
+		}
+		gs[gs_len++] = -1;
+		
+		/* deal with the nexts */
+		nexts[i] = two_edges_nexts_mic[i];
+	}
 	
 }
 
@@ -119,12 +161,34 @@ void reconstructDataforMiningOnMIC(int *ix, int *iy, int *x, int *a, int *y,  /*
 				int offload_len, int gs_len, /* length of input parameters  */
 				vector<GraphCode> &two_edges_child_gcs_mic, vector<int> &two_edges_nexts_mic /* output  */)
 {
-					
+	/* construct first edge */
+	Edge* first_e = new Edge(ix[0],iy[0],x[0],a[0],y[0]);
+	
+	for(int i=0; i<offload_len; i++)
+	{
+		/* construct every two edge graph */
+		GraphCode gc;
+		gc.seq.push_back(first_e);
+		Edge* second_e = new Edge(ix[i+1],iy[i+1],x[i+1],a[i+1],y[i+1]);
+		gc.seq.push_back(second_e);
+		two_edges_child_gcs_mic.push_back(gc);
+		
+		two_edges_nexts_mic.push_back(nexts[i]);
+	}
+	
+	/* construct gs of every two edge graph */
+	int count = 0;
+	for(int i=0; i<gs_len; i++)
+	{
+		if(gs[i]!=-1)
+			two_edges_child_gcs_mic[count].gs.push_back(gs[i]);
+		else
+			count++;
+	}
 }
 
 void freqGraphMiningfrom2edgesOnMIC(vector<GraphCode> &two_edges_child_gcs, vector<int> &two_edges_nexts, int mic_thread)
 {
-
 	vector<GraphCode> current_global_child_gcs;
 	vector<int> current_global_nexts;
 	vector<GraphCode> tmp_global_child_gcs;
@@ -180,6 +244,10 @@ void freqGraphMiningfrom2edgesOnMIC(vector<GraphCode> &two_edges_child_gcs, vect
 	}		
 }
 
+void getResultsSizeOnMIC(int &size)
+{
+	size = S.size();
+}
 
 void cmsingleEdgeGraphMining_simulationOnCPU(const Edge &e, vector<Edge> &single_edge_graph, int thread_num, int begin, int end, int mic_thread)
 {
@@ -696,4 +764,3 @@ void write_resultsOnMIC(char *output)
     }  
     fclose(fp);
 }
-

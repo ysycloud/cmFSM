@@ -29,6 +29,7 @@ void reconstructDataforMiningOnMIC(int *ix, int *iy, int *x, int *a, int *y,  /*
 				int offload_len, int gs_len, /* length of input parameters  */
 				vector<GraphCode> &two_edges_child_gcs_mic, vector<int> &two_edges_nexts_mic /* output  */);
 void freqGraphMiningfrom2edgesOnMIC(vector<GraphCode> &two_edges_child_gcs, vector<int> &two_edges_nexts, int mic_thread);
+void getResultsSizeOnMIC(int &size);
 void write_resultsOnMIC(char *output);
 
 #pragma offload_attribute (pop)

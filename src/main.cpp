@@ -154,7 +154,7 @@ int main(int argc, char **argv)
 				if(mic_thread==0)
 					singleEdgeGraphMining(e, single_edge_graph, thread_num, pre, i);
 				else
-					cmsingleEdgeGraphMining_simulationOnCPU( e, single_edge_graph, thread_num, pre, i, mic_thread);
+					cmsingleEdgeGraphMining( e, single_edge_graph, thread_num, pre, i, mic_thread);
 			}
 			pre = i;
 		}
@@ -174,7 +174,7 @@ int main(int argc, char **argv)
 				if(mic_thread==0)
 					singleEdgeGraphMining(e, single_edge_graph, thread_num, pre, index[i]); 
 				else
-					cmsingleEdgeGraphMining_simulationOnCPU( e, single_edge_graph, thread_num, pre, index[i], mic_thread);				
+					cmsingleEdgeGraphMining( e, single_edge_graph, thread_num, pre, index[i], mic_thread);				
 			}
 			pre = index[i];
 		}
@@ -190,7 +190,7 @@ int main(int argc, char **argv)
 				if(mic_thread==0)
 					singleEdgeGraphMining(e, single_edge_graph, thread_num, pre, i); 
 				else
-					cmsingleEdgeGraphMining_simulationOnCPU( e, single_edge_graph, thread_num, pre, i, mic_thread);
+					cmsingleEdgeGraphMining( e, single_edge_graph, thread_num, pre, i, mic_thread);
 				pre = i;				
 			}		
 		}
@@ -210,7 +210,7 @@ int main(int argc, char **argv)
 					if(mic_thread==0)
 						singleEdgeGraphMining(e, single_edge_graph, thread_num, pre, pos); 
 					else
-						cmsingleEdgeGraphMining_simulationOnCPU( e, single_edge_graph, thread_num, pre, pos, mic_thread);
+						cmsingleEdgeGraphMining( e, single_edge_graph, thread_num, pre, pos, mic_thread);
 					pre = pos;
 					pos = request_edge_id(my_rank);
 				}
@@ -228,13 +228,14 @@ int main(int argc, char **argv)
 		GET_TIME(start);
 	}
 
-//  int size;
-//	#pragma offload target(mic:0) out(size)											
-//	{
-//		getResultsSizeOnMIC(size);
-//	}
+	//get the number of results on MIC
+	int mic_size;
+	#pragma offload target(mic:0) out(mic_size)											
+	{
+		getResultsSizeOnMIC(mic_size);
+	}
 	
-	int local_fgraph_number = (int)S.size();
+	int local_fgraph_number = (int)S.size() + mic_size;
 	int gloal_fgraph_number;
 	//reduce to get the whole results
 	MPI_Reduce(&local_fgraph_number, &gloal_fgraph_number, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
@@ -243,10 +244,12 @@ int main(int argc, char **argv)
 	if(my_rank==0)
 		printf("Found %d frequent subgraphs\n", gloal_fgraph_number);  
   
-//	#pragma offload target(mic:0) in(output:length(FILE_NAME_MAX)alloc_if(1) free_if(1))											
-//	{
-//		write_resultsOnMIC(output);
-//	}
+	/*output mining results in MIC of every process*/
+	#pragma offload target(mic:0) in(output:length(FILE_NAME_MAX)alloc_if(1) free_if(1))											
+	{
+		write_resultsOnMIC(output);
+	}
+	
 	/*output mining results in every process*/ 
 	write_results(output, my_rank);  
   
