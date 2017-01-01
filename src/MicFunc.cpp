@@ -43,7 +43,8 @@ void cmsingleEdgeGraphMining(const Edge &e, vector<Edge> &single_edge_graph, int
 	int n = two_edges_child_gcs.size();
 	int cpu_len;
 	int* index1 = new int[n];
-	split_data_interval(n, mic_num+1, 0, index1, cpu_len);
+	//split_data_interval(n, mic_num+1, 0, index1, cpu_len);
+	split_data_interval_new(n, mic_num, 0, index1, cpu_len);
 	for(int i=0;i<cpu_len;i++)
 	{
 		two_edges_child_gcs_cpu.push_back(two_edges_child_gcs[index1[i]]);
@@ -62,7 +63,12 @@ void cmsingleEdgeGraphMining(const Edge &e, vector<Edge> &single_edge_graph, int
 		two_edges_child_gcs_mic.clear();
 		two_edges_nexts_mic.clear();
 		
-		split_data_interval(n, mic_num+1, i, index2, mic_len);
+		//split_data_interval(n, mic_num+1, i, index2, mic_len);
+		split_data_interval_new(n, mic_num, i, index2, mic_len);
+		
+		if(mic_len==0)
+			continue;
+		
 		for(int j=0;j<mic_len;j++)
 		{
 			two_edges_child_gcs_mic.push_back(two_edges_child_gcs[index2[j]]);
@@ -70,7 +76,7 @@ void cmsingleEdgeGraphMining(const Edge &e, vector<Edge> &single_edge_graph, int
 		}
 		
 		/* apply for space for preparing data to offload */
-		int offload_len = two_edges_child_gcs_mic.size();
+		int offload_len = two_edges_child_gcs_mic.size();		
 		int *ix = (int *)malloc((offload_len+1)*sizeof(int));
 		int *iy = (int *)malloc((offload_len+1)*sizeof(int));
 		int *x = (int *)malloc((offload_len+1)*sizeof(int));
@@ -122,7 +128,7 @@ void createDataForOffload(vector<GraphCode> &two_edges_child_gcs_mic, vector<int
 {
 	int offload_len = two_edges_child_gcs_mic.size();
 	int gs_len=0;
-	
+		
 	/* deal with the first edge */
 	vector<const Edge *> &s = two_edges_child_gcs_mic[0].seq;
 	ix[0] = s[0]->ix;
@@ -130,7 +136,7 @@ void createDataForOffload(vector<GraphCode> &two_edges_child_gcs_mic, vector<int
 	a[0] = s[0]->a; 
     x[0] = s[0]->x;  
     y[0] = s[0]->y;
-	
+		
 	vector<int> per_gs;
 	for(int i = 0; i < offload_len; i++)
 	{
@@ -552,6 +558,11 @@ void one_edge_expansion_mic_simulation(GraphCode &gc, int next, vector<GraphCode
     g->gs.swap(gc.gs); 
 }
 
+/*
+	n : task number
+	num : cpu_num + mic_num
+	order ：device id ( 0：cpu; 1：mic0; 2：mic1... )
+*/
 void split_data_interval(int n, int num, int order, int* index, int& local_n)
 {
 	
@@ -564,6 +575,34 @@ void split_data_interval(int n, int num, int order, int* index, int& local_n)
 	{
 		if(i%num==order)
 		{	 //cpu,mic0,mic1...,mic[num-1]
+			index[local_n++] = i;
+		}
+	}
+}
+
+/*
+	n : task number
+	num : mic_num
+	order ：device id ( 0：cpu; 1：mic0; 2：mic1... )
+*/
+void split_data_interval_new(int n, int num, int order, int* index, int& local_n)
+{
+	
+	local_n = 0;
+	
+	if(n==0)
+		return;
+	
+	if(order==0)  //deal with cpu
+	{
+		index[local_n++]=0;
+		return;
+	}
+		
+	for(int i=1; i<n; i++)  //deal with mics
+	{
+		if((i-1)%num==(order-1))
+		{	 //mic0,mic1...,mic[num-1]
 			index[local_n++] = i;
 		}
 	}

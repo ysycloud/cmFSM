@@ -10,7 +10,18 @@
 
 void cmsingleEdgeGraphMining(const Edge &e, vector<Edge> &single_edge_graph, int thread_num, int begin, int end, int mic_thread);
 void cmsingleEdgeGraphMining_simulationOnCPU( const Edge &e, vector<Edge> &single_edge_graph, int thread_num, int begin, int end, int mic_thread);
+/*
+	n : task number
+	num : cpu_num + mic_num
+	order ：device id ( 0：cpu; 1：mic0; 2：mic1... )
+*/
 void split_data_interval(int n, int num, int order, int* index, int& local_n);
+/*
+	n : task number
+	num : mic_num
+	order ：device id ( 0：cpu; 1：mic0; 2：mic1... )
+*/
+void split_data_interval_new(int n, int num, int order, int* index, int& local_n);
 void freqGraphMiningfrom2edgesOnCPU(vector<GraphCode> &two_edges_child_gcs, vector<int> &two_edges_nexts, int thread_num);
 void freqGraphMiningfrom2edgesOnMIC_simulation(vector<GraphCode> &two_edges_child_gcs, vector<int> &two_edges_nexts, int mic_thread, vector<Graph *> &MIC_S);
 void one_edge_expansion_mic_simulation(GraphCode &gc, int next, vector<GraphCode> &child_gcs, vector<int> &nexts, vector<Graph *> &MIC_S);
@@ -21,6 +32,7 @@ void createDataForOffload(vector<GraphCode> &two_edges_child_gcs_mic, vector<int
 
 
 #pragma offload_attribute (push, target(mic)) 
+
 void constructGraphSetOnMIC(int mic_thread, const vector<GraphData *> &v_gd,  /* input paras */
 				int *freq_node_label, int *freq_edge_label  /* input paras */);		
 void prepareDataOnMIC(char *input, int mic_thread, float min_Support_Rate);

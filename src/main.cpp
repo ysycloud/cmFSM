@@ -154,7 +154,7 @@ int main(int argc, char **argv)
 				if(mic_thread==0)
 					singleEdgeGraphMining(e, single_edge_graph, thread_num, pre, i);
 				else
-					cmsingleEdgeGraphMining( e, single_edge_graph, thread_num, pre, i, mic_thread);
+					cmsingleEdgeGraphMining(e, single_edge_graph, thread_num, pre, i, mic_thread);
 			}
 			pre = i;
 		}
@@ -235,7 +235,7 @@ int main(int argc, char **argv)
 		getResultsSizeOnMIC(mic_size);
 	}
 	
-	int local_fgraph_number = (int)S.size() + mic_size;
+	int local_fgraph_number = (int)S.size() ;//+ mic_size;
 	int gloal_fgraph_number;
 	//reduce to get the whole results
 	MPI_Reduce(&local_fgraph_number, &gloal_fgraph_number, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
