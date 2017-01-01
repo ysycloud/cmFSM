@@ -34,13 +34,30 @@ int main(int argc, char **argv)
 	
 	/* parse command line options */
 	parse_params(argc, argv, my_rank, input, output, min_Support_Rate, division_way, thread_num, mic_thread);
+	int mic_num = 2;
 	
-	#pragma offload target(mic:0) \
-			in(input:length(FILE_NAME_MAX)alloc_if(1) free_if(1)) in(min_Support_Rate) in(mic_thread)												
-			{
-				prepareDataOnMIC(input, mic_thread, min_Support_Rate);
-			}
-	
+	for(int i=0; i<mic_num; i++)
+	{
+		if(i==0)
+		{
+			#pragma offload target(mic:0) \
+				in(input:length(FILE_NAME_MAX)alloc_if(1) free_if(1)) in(min_Support_Rate) in(mic_thread)												
+					prepareDataOnMIC(input, mic_thread, min_Support_Rate);
+		}
+		else if(i==1)
+		{
+			#pragma offload target(mic:1) \
+				in(input:length(FILE_NAME_MAX)alloc_if(1) free_if(1)) in(min_Support_Rate) in(mic_thread)												
+					prepareDataOnMIC(input, mic_thread, min_Support_Rate);
+		}
+		else
+		{
+			#pragma offload target(mic:2) \
+				in(input:length(FILE_NAME_MAX)alloc_if(1) free_if(1)) in(min_Support_Rate) in(mic_thread)												
+					prepareDataOnMIC(input, mic_thread, min_Support_Rate);
+		}	
+	}
+
 //	if(my_rank==0)
 //		printf("input:%s\toutput:%s\t%f\t%d\t%d\n",input,output,min_Support_Rate,division_way,thread_num);
 		
@@ -230,12 +247,30 @@ int main(int argc, char **argv)
 
 	//get the number of results on MIC
 	int mic_size;
-	#pragma offload target(mic:0) out(mic_size)											
+	int local_fgraph_number = (int)S.size();
+	
+	for(int i=0; i<mic_num; i++)
 	{
-		getResultsSizeOnMIC(mic_size);
+		if(i==0)
+		{
+			#pragma offload target(mic:0) out(mic_size)											
+				getResultsSizeOnMIC(mic_size);
+			local_fgraph_number += mic_size;
+		}
+		else if(i==1)
+		{
+			#pragma offload target(mic:1) out(mic_size)											
+				getResultsSizeOnMIC(mic_size);
+			local_fgraph_number += mic_size;
+		}
+		else
+		{
+			#pragma offload target(mic:2) out(mic_size)											
+				getResultsSizeOnMIC(mic_size);
+			local_fgraph_number += mic_size;
+		}	
 	}
 	
-	int local_fgraph_number = (int)S.size() ;//+ mic_size;
 	int gloal_fgraph_number;
 	//reduce to get the whole results
 	MPI_Reduce(&local_fgraph_number, &gloal_fgraph_number, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
@@ -245,11 +280,25 @@ int main(int argc, char **argv)
 		printf("Found %d frequent subgraphs\n", gloal_fgraph_number);  
   
 	/*output mining results in MIC of every process*/
-	#pragma offload target(mic:0) in(output:length(FILE_NAME_MAX)alloc_if(1) free_if(1))											
+	for(int i=0; i<mic_num; i++)
 	{
-		write_resultsOnMIC(output);
+		if(i==0)
+		{
+			#pragma offload target(mic:0) in(output:length(FILE_NAME_MAX)alloc_if(1) free_if(1))											
+				write_resultsOnMIC(output);
+		}
+		else if(i==1)
+		{
+			#pragma offload target(mic:1) in(output:length(FILE_NAME_MAX)alloc_if(1) free_if(1))											
+				write_resultsOnMIC(output);
+		}
+		else
+		{
+			#pragma offload target(mic:2) in(output:length(FILE_NAME_MAX)alloc_if(1) free_if(1))											
+				write_resultsOnMIC(output);
+		}	
 	}
-	
+
 	/*output mining results in every process*/ 
 	write_results(output, my_rank);  
   
