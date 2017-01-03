@@ -40,6 +40,7 @@ Usage:	paraGSpan [options]
 			0: equality; 1: single; 2: increment; 3: circle; 4：dynamic
 		-t --thread: the number of threads in per process_num[default:1].
 		-m --micthread: the number of threads in per mic[default:0 not use mic]
+		-b --bindmic: the number of mics bind to one process[default:1]
 	input/output options:
 		-i --input: input file of graph set information.
 		-o --output: the output file of frequent subgraph results.
@@ -48,21 +49,46 @@ Usage:	paraGSpan [options]
 As an example file Chemical_340 is provided. To run paraGSpan on this file,
 type:
 ```shell
-mpirun -n 1 ./paraGSpan -i data/Chemical_340 -o output -s 0.1 -d 2 -t 2
+mpirun -n 2 ./cmFSM -i data/Chemical_340 -o output -s 0.1 -d 4 -t 2 -m 50 -b 1
 ```
 
 ### Output Format:
 the output at command line of the example above:  
 ```shell
-loading file time: 0.000000 seconds
+loading file time: 0.681407 seconds
 340 graphs with minSup = 34
 single_vertex_graph_num: 16
-prework for mining frequenct subgraph spend: 0.020000 seconds
+prework for mining frequenct subgraph spend: 0.337198 seconds
 single_edge_graph_num: 23
-the division strategy among processes : increment
-Mining frequenct subgraph spend: 0.410000 seconds
+the division strategy among processes : dynamic
+rank:0 ---> start up supervisor!!!
+rank:1 --> edge:0
+rank:1 --> edge:1
+rank:1 --> edge:2
+rank:1 --> edge:3
+rank:1 --> edge:4
+rank:1 --> edge:5
+rank:1 --> edge:6
+rank:1 --> edge:7
+rank:1 --> edge:8
+rank:1 --> edge:9
+rank:1 --> edge:10
+rank:1 --> edge:11
+rank:1 --> edge:12
+rank:1 --> edge:13
+rank:1 --> edge:14
+rank:1 --> edge:15
+rank:1 --> edge:16
+rank:1 --> edge:17
+rank:1 --> edge:18
+rank:1 --> edge:19
+rank:1 --> edge:20
+rank:1 --> edge:21
+rank:1 --> edge:22
+rank:1:-1
+Mining frequenct subgraph spend: 0.679744 seconds
 Found 860 frequent subgraphs
-output mining results time: 0.010000 seconds
+output mining results time: 0.004492 seconds
 ```
 
 the results written in file of the example above:
