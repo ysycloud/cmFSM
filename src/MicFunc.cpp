@@ -11,11 +11,9 @@ __attribute__((target(mic))) void funcheck(int i)
 }
 */
 
-void cmsingleEdgeGraphMining(const Edge &e, vector<Edge> &single_edge_graph, int thread_num, int begin, int end, int mic_thread)
+void cmsingleEdgeGraphMining(const Edge &e, vector<Edge> &single_edge_graph, int thread_num, int begin, int end, int mic_thread, int mic_num)
 {
 	
-	int mic_num=2;
-		
 	// GS <- GS - es (make sure the results will not rebundant)
 	for(int i=begin; i < end; i++)
 	{
@@ -37,7 +35,7 @@ void cmsingleEdgeGraphMining(const Edge &e, vector<Edge> &single_edge_graph, int
 	vector<GraphCode> two_edges_child_gcs_mic;
 	vector<int> two_edges_nexts_mic;
 	
-	float sig0[1], sig1[1], sig2[1];
+	float *sig0, *sig1, *sig2;
 	
 	//first expansion to get the children set(two edges frequent graph)
 	one_edge_expansion(gc, 2, two_edges_child_gcs, two_edges_nexts);
@@ -56,6 +54,10 @@ void cmsingleEdgeGraphMining(const Edge &e, vector<Edge> &single_edge_graph, int
 	delete[] index1;
 	
 	/* divide tasks for mics and offload to execute*/
+	int offload_len0=0,offload_len1=0,offload_len2=0;		
+	int *ix0,*ix1,*ix2,*iy0,*iy1,*iy2,*x0,*x1,*x2,*a0,*a1,*a2,*y0,*y1,*y2;
+	int *gs0,*gs1,*gs2,*nexts0,*nexts1,*nexts2;
+	int gs_len0=0,gs_len1=0,gs_len2=0;
 	int mic_len;
 	int *index2 = new int[n];
 	for(int i=1;i<=mic_num;i++)
@@ -75,89 +77,113 @@ void cmsingleEdgeGraphMining(const Edge &e, vector<Edge> &single_edge_graph, int
 			two_edges_nexts_mic.push_back(two_edges_nexts[index2[j]]);
 		}
 		
-		/* apply for space for preparing data to offload */
-		int offload_len = two_edges_child_gcs_mic.size();		
-		int *ix = (int *)malloc((offload_len+1)*sizeof(int));
-		int *iy = (int *)malloc((offload_len+1)*sizeof(int));
-		int *x = (int *)malloc((offload_len+1)*sizeof(int));
-		int *a = (int *)malloc((offload_len+1)*sizeof(int));
-		int *y = (int *)malloc((offload_len+1)*sizeof(int));
-		int gs_len=0;
-		for(size_t j=0;j<offload_len;j++)
-		{
-			gs_len += two_edges_child_gcs_mic[j].gs.size();
-		}
-		gs_len += offload_len;
-		int *gs = (int *)malloc((gs_len)*sizeof(int));
-		int *nexts = (int *)malloc((offload_len)*sizeof(int));
-		
-		/* create bit-copyable data to offload */
-		createDataForOffload(two_edges_child_gcs_mic, two_edges_nexts_mic, ix, iy, x, a, y, gs, nexts);
-		
 		/* offload to mic to execute */
 		if(i==1)
 		{
+			/* apply for space for preparing data to offload */
+			offload_len0 = two_edges_child_gcs_mic.size();		
+			ix0 = (int *)malloc((offload_len0+1)*sizeof(int));
+			iy0 = (int *)malloc((offload_len0+1)*sizeof(int));
+			x0 = (int *)malloc((offload_len0+1)*sizeof(int));
+			a0 = (int *)malloc((offload_len0+1)*sizeof(int));
+			y0 = (int *)malloc((offload_len0+1)*sizeof(int));
+			gs_len0=0;
+			for(size_t j=0;j<offload_len0;j++)
+			{
+				gs_len0 += two_edges_child_gcs_mic[j].gs.size();
+			}
+			gs_len0 += offload_len0;
+			gs0 = (int *)malloc((gs_len0)*sizeof(int));
+			nexts0 = (int *)malloc((offload_len0)*sizeof(int));
+		
+			/* create bit-copyable data to offload */
+			createDataForOffload(two_edges_child_gcs_mic, two_edges_nexts_mic, ix0, iy0, x0, a0, y0, gs0, nexts0);
+		
 			#pragma offload target(mic:0) \
-				in(ix:length(offload_len+1)alloc_if(1) free_if(1)) \
-				in(iy:length(offload_len+1)alloc_if(1) free_if(1)) \
-				in(x:length(offload_len+1)alloc_if(1) free_if(1)) \
-				in(a:length(offload_len+1)alloc_if(1) free_if(1)) \
-				in(y:length(offload_len+1)alloc_if(1) free_if(1)) \
-				in(gs:length(gs_len)alloc_if(1) free_if(1)) \
-				in(nexts:length(offload_len)alloc_if(1) free_if(1)) //\
-	//			in(sig0:length(1)) signal(sig0)			
+				in(ix0:length(offload_len0+1)alloc_if(1) free_if(1)) \
+				in(iy0:length(offload_len0+1)alloc_if(1) free_if(1)) \
+				in(x0:length(offload_len0+1)alloc_if(1) free_if(1)) \
+				in(a0:length(offload_len0+1)alloc_if(1) free_if(1)) \
+				in(y0:length(offload_len0+1)alloc_if(1) free_if(1)) \
+				in(gs0:length(gs_len0)alloc_if(1) free_if(1)) \
+				in(nexts0:length(offload_len0)alloc_if(1) free_if(1)) signal(sig0)
 			{
 				vector<GraphCode> two_edges_gcs;
 				vector<int> two_edges_nexts;
-				reconstructDataforMiningOnMIC(ix, iy, x, a, y, gs, nexts, offload_len, gs_len, two_edges_gcs, two_edges_nexts);
+				reconstructDataforMiningOnMIC(ix0, iy0, x0, a0, y0, gs0, nexts0, offload_len0, gs_len0, two_edges_gcs, two_edges_nexts);
 				freqGraphMiningfrom2edgesOnMIC(two_edges_gcs, two_edges_nexts, mic_thread);
 			}
 		}
 		else if(i==2)
 		{
+			/* apply for space for preparing data to offload */
+			offload_len1 = two_edges_child_gcs_mic.size();		
+			ix1 = (int *)malloc((offload_len1+1)*sizeof(int));
+			iy1 = (int *)malloc((offload_len1+1)*sizeof(int));
+			x1 = (int *)malloc((offload_len1+1)*sizeof(int));
+			a1 = (int *)malloc((offload_len1+1)*sizeof(int));
+			y1 = (int *)malloc((offload_len1+1)*sizeof(int));
+			gs_len1 = 0;
+			for(size_t j=0;j<offload_len1;j++)
+			{
+				gs_len1 += two_edges_child_gcs_mic[j].gs.size();
+			}
+			gs_len1 += offload_len1;
+			gs1 = (int *)malloc((gs_len1)*sizeof(int));
+			nexts1 = (int *)malloc((offload_len1)*sizeof(int));
+		
+			/* create bit-copyable data to offload */
+			createDataForOffload(two_edges_child_gcs_mic, two_edges_nexts_mic, ix1, iy1, x1, a1, y1, gs1, nexts1);
 			#pragma offload target(mic:1) \
-				in(ix:length(offload_len+1)alloc_if(1) free_if(1)) \
-				in(iy:length(offload_len+1)alloc_if(1) free_if(1)) \
-				in(x:length(offload_len+1)alloc_if(1) free_if(1)) \
-				in(a:length(offload_len+1)alloc_if(1) free_if(1)) \
-				in(y:length(offload_len+1)alloc_if(1) free_if(1)) \
-				in(gs:length(gs_len)alloc_if(1) free_if(1)) \
-				in(nexts:length(offload_len)alloc_if(1) free_if(1)) //\
-	//			in(sig0:length(1)) signal(sig1)			
+				in(ix1:length(offload_len1+1)alloc_if(1) free_if(1)) \
+				in(iy1:length(offload_len1+1)alloc_if(1) free_if(1)) \
+				in(x1:length(offload_len1+1)alloc_if(1) free_if(1)) \
+				in(a1:length(offload_len1+1)alloc_if(1) free_if(1)) \
+				in(y1:length(offload_len1+1)alloc_if(1) free_if(1)) \
+				in(gs1:length(gs_len1)alloc_if(1) free_if(1)) \
+				in(nexts1:length(offload_len1)alloc_if(1) free_if(1)) signal(sig1)	
 			{
 				vector<GraphCode> two_edges_gcs;
 				vector<int> two_edges_nexts;
-				reconstructDataforMiningOnMIC(ix, iy, x, a, y, gs, nexts, offload_len, gs_len, two_edges_gcs, two_edges_nexts);
+				reconstructDataforMiningOnMIC(ix1, iy1, x1, a1, y1, gs1, nexts1, offload_len1, gs_len1, two_edges_gcs, two_edges_nexts);
 				freqGraphMiningfrom2edgesOnMIC(two_edges_gcs, two_edges_nexts, mic_thread);
 			}
 		}
 		else
 		{
+			/* apply for space for preparing data to offload */
+			offload_len2 = two_edges_child_gcs_mic.size();		
+			ix2 = (int *)malloc((offload_len2+1)*sizeof(int));
+			iy2 = (int *)malloc((offload_len2+1)*sizeof(int));
+			x2 = (int *)malloc((offload_len2+1)*sizeof(int));
+			a2 = (int *)malloc((offload_len2+1)*sizeof(int));
+			y2 = (int *)malloc((offload_len2+1)*sizeof(int));
+			gs_len2 = 0;
+			for(size_t j=0;j<offload_len2;j++)
+			{
+				gs_len2 += two_edges_child_gcs_mic[j].gs.size();
+			}
+			gs_len2 += offload_len2;
+			gs2 = (int *)malloc((gs_len2)*sizeof(int));
+			nexts2 = (int *)malloc((offload_len2)*sizeof(int));
+		
+			/* create bit-copyable data to offload */
+			createDataForOffload(two_edges_child_gcs_mic, two_edges_nexts_mic, ix2, iy2, x2, a2, y2, gs2, nexts2);
 			#pragma offload target(mic:2) \
-				in(ix:length(offload_len+1)alloc_if(1) free_if(1)) \
-				in(iy:length(offload_len+1)alloc_if(1) free_if(1)) \
-				in(x:length(offload_len+1)alloc_if(1) free_if(1)) \
-				in(a:length(offload_len+1)alloc_if(1) free_if(1)) \
-				in(y:length(offload_len+1)alloc_if(1) free_if(1)) \
-				in(gs:length(gs_len)alloc_if(1) free_if(1)) \
-				in(nexts:length(offload_len)alloc_if(1) free_if(1)) //\
-	//			in(sig0:length(1)) signal(sig2)			
+				in(ix2:length(offload_len2+1)alloc_if(1) free_if(1)) \
+				in(iy2:length(offload_len2+1)alloc_if(1) free_if(1)) \
+				in(x2:length(offload_len2+1)alloc_if(1) free_if(1)) \
+				in(a2:length(offload_len2+1)alloc_if(1) free_if(1)) \
+				in(y2:length(offload_len2+1)alloc_if(1) free_if(1)) \
+				in(gs2:length(gs_len2)alloc_if(1) free_if(1)) \
+				in(nexts2:length(offload_len2)alloc_if(1) free_if(1)) signal(sig2)	
 			{
 				vector<GraphCode> two_edges_gcs;
 				vector<int> two_edges_nexts;
-				reconstructDataforMiningOnMIC(ix, iy, x, a, y, gs, nexts, offload_len, gs_len, two_edges_gcs, two_edges_nexts);
+				reconstructDataforMiningOnMIC(ix2, iy2, x2, a2, y2, gs2, nexts2, offload_len2, gs_len2, two_edges_gcs, two_edges_nexts);
 				freqGraphMiningfrom2edgesOnMIC(two_edges_gcs, two_edges_nexts, mic_thread);
 			}
-		}
-
-		
-		delete[] ix;
-		delete[] iy;
-		delete[] x;
-		delete[] a;
-		delete[] y;
-		delete[] gs;
-		delete[] nexts;
+		}	
 	}
 	delete[] index2;
 	
@@ -165,10 +191,43 @@ void cmsingleEdgeGraphMining(const Edge &e, vector<Edge> &single_edge_graph, int
 	freqGraphMiningfrom2edgesOnCPU(two_edges_child_gcs_cpu, two_edges_nexts_cpu, thread_num);
 	
 	/* Synchronize asynchronous tasks */
-//	#pragma offload_wait target(mic:0) wait(sig0)
-//	#pragma offload_wait target(mic:0) wait(sig1)
-//	#pragma offload_wait target(mic:0) wait(sig2)
+	#pragma offload_wait target(mic:0) if(mic_num>=1) wait(sig0)
+	#pragma offload_wait target(mic:1) if(mic_num>=2) wait(sig1)
+	#pragma offload_wait target(mic:2) if(mic_num>=3) wait(sig2)
+		
+	/* delete after Synchronize to make sure offload data will not fail*/
+	if(mic_num>=1 && offload_len0>0)
+	{
+		delete[] ix0;
+		delete[] iy0;
+		delete[] x0;
+		delete[] a0;
+		delete[] y0;
+		delete[] gs0;
+		delete[] nexts0;
+	}
 	
+	if(mic_num>=2 && offload_len1>0)
+	{
+		delete[] ix1;
+		delete[] iy1;
+		delete[] x1;
+		delete[] a1;
+		delete[] y1;
+		delete[] gs1;
+		delete[] nexts1;
+	}
+	
+	if(mic_num>=3 && offload_len2>0)
+	{
+		delete[] ix2;
+		delete[] iy2;
+		delete[] x2;
+		delete[] a2;
+		delete[] y2;
+		delete[] gs2;
+		delete[] nexts2;
+	}
 	
 }
 

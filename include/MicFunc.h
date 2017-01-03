@@ -8,7 +8,7 @@
 
 
 
-void cmsingleEdgeGraphMining(const Edge &e, vector<Edge> &single_edge_graph, int thread_num, int begin, int end, int mic_thread);
+void cmsingleEdgeGraphMining(const Edge &e, vector<Edge> &single_edge_graph, int thread_num, int begin, int end, int mic_thread, int mic_num);
 void cmsingleEdgeGraphMining_simulationOnCPU( const Edge &e, vector<Edge> &single_edge_graph, int thread_num, int begin, int end, int mic_thread);
 /*
 	n : task number

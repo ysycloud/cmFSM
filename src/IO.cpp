@@ -8,7 +8,7 @@ void Usage()
 void parse_params(int argc, char **argv, int my_rank,  /* input paras */
 				char *input, char *output, /* output paras */
 				float &min_Support_Rate, int &division_way, 
-				int &thread_num, int &mic_thread /* output paras */
+				int &thread_num, int &mic_thread, int &mic_num/* output paras */
 				)
 {
 	
@@ -31,6 +31,7 @@ void parse_params(int argc, char **argv, int my_rank,  /* input paras */
 	division_way = -1;
 	thread_num = -1;
 	mic_thread = -1;
+	mic_num = -1;
     // Unset options (value 'UNSET').
     strcpy(input,"unset");
 	strcpy(output,"unset");
@@ -48,10 +49,11 @@ void parse_params(int argc, char **argv, int my_rank,  /* input paras */
 			{"division",        required_argument,        0, 'd'},
 			{"thread",        	required_argument,        0, 't'},
 			{"micthread",       required_argument,        0, 'm'},
+			{"bindmic",       	required_argument,        0, 'b'},
 			{0, 0, 0, 0}
 		};
 
-		c = getopt_long(argc, argv, "i:o:s:d:t:m:",
+		c = getopt_long(argc, argv, "i:o:s:d:t:m:b:",
             long_options, &option_index);
 	
 		if(c==-1)	break;
@@ -193,6 +195,30 @@ void parse_params(int argc, char **argv, int my_rank,  /* input paras */
 				exit(0);
 			}
 			break;
+
+		case 'b':
+			if (mic_num < 0) {
+				mic_num = atof(optarg);
+				if (mic_num <= 0 || mic_num > 3) {
+					if(my_rank==0)
+					{
+						fprintf(stderr, "%d --bindmic must be a integer value among 1,2,3\n", ERRM);
+						Usage();
+					}
+					MPI_Finalize();
+					exit(0);
+				}
+			}
+			else {
+				if(my_rank==0)
+				{
+					fprintf(stderr,"%s --bindmic set more than once\n", ERRM);
+					Usage();
+				}
+				MPI_Finalize();
+				exit(0);
+			}
+			break;
 			
 		default:
 			// Cannot parse.
@@ -234,6 +260,10 @@ void parse_params(int argc, char **argv, int my_rank,  /* input paras */
 	/* check whether mic thread num is valid */
 	if(mic_thread==-1)
 		mic_thread = 0;
+	
+	/* check whether mic num in one process is valid */
+	if(mic_num==-1)
+		mic_num = 1;
 	
 	/* check whether output file is set */
 	if(strcmp(output, "unset")==0)

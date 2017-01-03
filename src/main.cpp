@@ -29,34 +29,38 @@ int main(int argc, char **argv)
 	int division_way;
 	int thread_num;
 	int mic_thread;
+	int mic_num;
     char input[FILE_NAME_MAX];
 	char output[FILE_NAME_MAX];
 	
 	/* parse command line options */
-	parse_params(argc, argv, my_rank, input, output, min_Support_Rate, division_way, thread_num, mic_thread);
-	int mic_num = 2;
+	parse_params(argc, argv, my_rank, input, output, min_Support_Rate, division_way, thread_num, mic_thread, mic_num);
 	
-	for(int i=0; i<mic_num; i++)
+	if(mic_thread !=0 )
 	{
-		if(i==0)
+		for(int i=0; i<mic_num; i++)
 		{
-			#pragma offload target(mic:0) \
-				in(input:length(FILE_NAME_MAX)alloc_if(1) free_if(1)) in(min_Support_Rate) in(mic_thread)												
-					prepareDataOnMIC(input, mic_thread, min_Support_Rate);
+			if(i==0)
+			{
+				#pragma offload target(mic:0) \
+					in(input:length(FILE_NAME_MAX)alloc_if(1) free_if(1)) in(min_Support_Rate) in(mic_thread)												
+						prepareDataOnMIC(input, mic_thread, min_Support_Rate);
+			}
+			else if(i==1)
+			{
+				#pragma offload target(mic:1) \
+					in(input:length(FILE_NAME_MAX)alloc_if(1) free_if(1)) in(min_Support_Rate) in(mic_thread)												
+						prepareDataOnMIC(input, mic_thread, min_Support_Rate);
+			}
+			else
+			{
+				#pragma offload target(mic:2) \
+					in(input:length(FILE_NAME_MAX)alloc_if(1) free_if(1)) in(min_Support_Rate) in(mic_thread)												
+						prepareDataOnMIC(input, mic_thread, min_Support_Rate);
+			}	
 		}
-		else if(i==1)
-		{
-			#pragma offload target(mic:1) \
-				in(input:length(FILE_NAME_MAX)alloc_if(1) free_if(1)) in(min_Support_Rate) in(mic_thread)												
-					prepareDataOnMIC(input, mic_thread, min_Support_Rate);
-		}
-		else
-		{
-			#pragma offload target(mic:2) \
-				in(input:length(FILE_NAME_MAX)alloc_if(1) free_if(1)) in(min_Support_Rate) in(mic_thread)												
-					prepareDataOnMIC(input, mic_thread, min_Support_Rate);
-		}	
 	}
+
 
 //	if(my_rank==0)
 //		printf("input:%s\toutput:%s\t%f\t%d\t%d\n",input,output,min_Support_Rate,division_way,thread_num);
@@ -171,7 +175,7 @@ int main(int argc, char **argv)
 				if(mic_thread==0)
 					singleEdgeGraphMining(e, single_edge_graph, thread_num, pre, i);
 				else
-					cmsingleEdgeGraphMining(e, single_edge_graph, thread_num, pre, i, mic_thread);
+					cmsingleEdgeGraphMining(e, single_edge_graph, thread_num, pre, i, mic_thread, mic_num);
 			}
 			pre = i;
 		}
@@ -191,7 +195,7 @@ int main(int argc, char **argv)
 				if(mic_thread==0)
 					singleEdgeGraphMining(e, single_edge_graph, thread_num, pre, index[i]); 
 				else
-					cmsingleEdgeGraphMining( e, single_edge_graph, thread_num, pre, index[i], mic_thread);				
+					cmsingleEdgeGraphMining( e, single_edge_graph, thread_num, pre, index[i], mic_thread, mic_num);				
 			}
 			pre = index[i];
 		}
@@ -207,7 +211,7 @@ int main(int argc, char **argv)
 				if(mic_thread==0)
 					singleEdgeGraphMining(e, single_edge_graph, thread_num, pre, i); 
 				else
-					cmsingleEdgeGraphMining( e, single_edge_graph, thread_num, pre, i, mic_thread);
+					cmsingleEdgeGraphMining( e, single_edge_graph, thread_num, pre, i, mic_thread, mic_num);
 				pre = i;				
 			}		
 		}
@@ -227,7 +231,7 @@ int main(int argc, char **argv)
 					if(mic_thread==0)
 						singleEdgeGraphMining(e, single_edge_graph, thread_num, pre, pos); 
 					else
-						cmsingleEdgeGraphMining( e, single_edge_graph, thread_num, pre, pos, mic_thread);
+						cmsingleEdgeGraphMining( e, single_edge_graph, thread_num, pre, pos, mic_thread, mic_num);
 					pre = pos;
 					pos = request_edge_id(my_rank);
 				}
@@ -249,27 +253,31 @@ int main(int argc, char **argv)
 	int mic_size;
 	int local_fgraph_number = (int)S.size();
 	
-	for(int i=0; i<mic_num; i++)
+	if(mic_thread!=0)
 	{
-		if(i==0)
+		for(int i=0; i<mic_num; i++)
 		{
-			#pragma offload target(mic:0) out(mic_size)											
-				getResultsSizeOnMIC(mic_size);
-			local_fgraph_number += mic_size;
+			if(i==0)
+			{
+				#pragma offload target(mic:0) out(mic_size)											
+					getResultsSizeOnMIC(mic_size);
+				local_fgraph_number += mic_size;
+			}
+			else if(i==1)
+			{
+				#pragma offload target(mic:1) out(mic_size)											
+					getResultsSizeOnMIC(mic_size);
+				local_fgraph_number += mic_size;
+			}
+			else
+			{
+				#pragma offload target(mic:2) out(mic_size)											
+					getResultsSizeOnMIC(mic_size);
+				local_fgraph_number += mic_size;
+			}	
 		}
-		else if(i==1)
-		{
-			#pragma offload target(mic:1) out(mic_size)											
-				getResultsSizeOnMIC(mic_size);
-			local_fgraph_number += mic_size;
-		}
-		else
-		{
-			#pragma offload target(mic:2) out(mic_size)											
-				getResultsSizeOnMIC(mic_size);
-			local_fgraph_number += mic_size;
-		}	
 	}
+
 	
 	int gloal_fgraph_number;
 	//reduce to get the whole results
@@ -280,23 +288,26 @@ int main(int argc, char **argv)
 		printf("Found %d frequent subgraphs\n", gloal_fgraph_number);  
   
 	/*output mining results in MIC of every process*/
-	for(int i=0; i<mic_num; i++)
+	if(mic_thread!=0)
 	{
-		if(i==0)
+		for(int i=0; i<mic_num; i++)
 		{
-			#pragma offload target(mic:0) in(output:length(FILE_NAME_MAX)alloc_if(1) free_if(1))											
-				write_resultsOnMIC(output);
+			if(i==0)
+			{
+				#pragma offload target(mic:0) in(output:length(FILE_NAME_MAX)alloc_if(1) free_if(1))											
+					write_resultsOnMIC(output);
+			}
+			else if(i==1)
+			{
+				#pragma offload target(mic:1) in(output:length(FILE_NAME_MAX)alloc_if(1) free_if(1))											
+					write_resultsOnMIC(output);
+			}
+			else
+			{
+				#pragma offload target(mic:2) in(output:length(FILE_NAME_MAX)alloc_if(1) free_if(1))											
+					write_resultsOnMIC(output);
+			}	
 		}
-		else if(i==1)
-		{
-			#pragma offload target(mic:1) in(output:length(FILE_NAME_MAX)alloc_if(1) free_if(1))											
-				write_resultsOnMIC(output);
-		}
-		else
-		{
-			#pragma offload target(mic:2) in(output:length(FILE_NAME_MAX)alloc_if(1) free_if(1))											
-				write_resultsOnMIC(output);
-		}	
 	}
 
 	/*output mining results in every process*/ 
