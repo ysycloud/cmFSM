@@ -44,8 +44,8 @@ void cmsingleEdgeGraphMining(const Edge &e, vector<Edge> &single_edge_graph, int
 	/* divide tasks for cpu */
 	int cpu_len;
 	int* index1 = new int[n];
-	//split_data_interval(n, mic_num+1, 0, index1, cpu_len);
-	split_data_interval_new(n, mic_num, 0, index1, cpu_len);
+	split_data_interval(n, mic_num+1, 0, index1, cpu_len);
+	//split_data_interval_new(n, mic_num, 0, index1, cpu_len);
 	for(int i=0;i<cpu_len;i++)
 	{
 		two_edges_child_gcs_cpu.push_back(two_edges_child_gcs[index1[i]]);
@@ -65,8 +65,8 @@ void cmsingleEdgeGraphMining(const Edge &e, vector<Edge> &single_edge_graph, int
 		two_edges_child_gcs_mic.clear();
 		two_edges_nexts_mic.clear();
 		
-		//split_data_interval(n, mic_num+1, i, index2, mic_len);
-		split_data_interval_new(n, mic_num, i, index2, mic_len);
+		split_data_interval(n, mic_num+1, i, index2, mic_len);
+		//split_data_interval_new(n, mic_num, i, index2, mic_len);
 		
 		if(mic_len==0)
 			continue;

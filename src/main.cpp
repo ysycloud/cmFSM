@@ -33,8 +33,12 @@ int main(int argc, char **argv)
     char input[FILE_NAME_MAX];
 	char output[FILE_NAME_MAX];
 	
+	int *sig0,*sig1,*sig2;
+	
 	/* parse command line options */
 	parse_params(argc, argv, my_rank, input, output, min_Support_Rate, division_way, thread_num, mic_thread, mic_num);
+	
+	GET_TIME(start);
 	
 	if(mic_thread !=0 )
 	{
@@ -43,29 +47,31 @@ int main(int argc, char **argv)
 			if(i==0)
 			{
 				#pragma offload target(mic:0) \
-					in(input:length(FILE_NAME_MAX)alloc_if(1) free_if(1)) in(min_Support_Rate) in(mic_thread)												
+					in(input:length(FILE_NAME_MAX)alloc_if(1) free_if(1)) \
+					in(min_Support_Rate) in(mic_thread) signal(sig0)												
 						prepareDataOnMIC(input, mic_thread, min_Support_Rate);
 			}
 			else if(i==1)
 			{
 				#pragma offload target(mic:1) \
-					in(input:length(FILE_NAME_MAX)alloc_if(1) free_if(1)) in(min_Support_Rate) in(mic_thread)												
+					in(input:length(FILE_NAME_MAX)alloc_if(1) free_if(1)) \
+					in(min_Support_Rate) in(mic_thread) signal(sig1)												
 						prepareDataOnMIC(input, mic_thread, min_Support_Rate);
 			}
 			else
 			{
 				#pragma offload target(mic:2) \
-					in(input:length(FILE_NAME_MAX)alloc_if(1) free_if(1)) in(min_Support_Rate) in(mic_thread)												
+					in(input:length(FILE_NAME_MAX)alloc_if(1) free_if(1)) \
+					in(min_Support_Rate) in(mic_thread) signal(sig2)												
 						prepareDataOnMIC(input, mic_thread, min_Support_Rate);
 			}	
 		}
 	}
 
-
 //	if(my_rank==0)
 //		printf("input:%s\toutput:%s\t%f\t%d\t%d\n",input,output,min_Support_Rate,division_way,thread_num);
 		
-	GET_TIME(start);		    
+			    
     int freq_node_label[LABEL_MAX + 1], freq_edge_label[LABEL_MAX + 1];
 	//we cannot memset the array in the function, 
 	//because the array is transfered into the function as a copying pointer,
@@ -103,6 +109,11 @@ int main(int argc, char **argv)
 	6.enumerate all frequent 1-edge graphs in GS
 	********/
 	pretreatment(my_rank, thread_num, v_gd, freq_node_label, freq_edge_label, max_node_label, max_edge_label);
+	
+	/* Synchronize asynchronous preparation tasks */
+	#pragma offload_wait target(mic:0) if(mic_num>=1&&mic_thread!=0) wait(sig0)
+	#pragma offload_wait target(mic:1) if(mic_num>=2&&mic_thread!=0) wait(sig1)
+	#pragma offload_wait target(mic:2) if(mic_num>=3&&mic_thread!=0) wait(sig2)
   
 	if(my_rank==0)
 	{
@@ -253,6 +264,7 @@ int main(int argc, char **argv)
 	int mic_size;
 	int local_fgraph_number = (int)S.size();
 	
+	
 	if(mic_thread!=0)
 	{
 		for(int i=0; i<mic_num; i++)
@@ -277,7 +289,7 @@ int main(int argc, char **argv)
 			}	
 		}
 	}
-
+	
 	
 	int gloal_fgraph_number;
 	//reduce to get the whole results
@@ -294,17 +306,17 @@ int main(int argc, char **argv)
 		{
 			if(i==0)
 			{
-				#pragma offload target(mic:0) in(output:length(FILE_NAME_MAX)alloc_if(1) free_if(1))											
+				#pragma offload target(mic:0) in(output:length(FILE_NAME_MAX)alloc_if(1) free_if(1)) signal(sig0)											
 					write_resultsOnMIC(output);
 			}
 			else if(i==1)
 			{
-				#pragma offload target(mic:1) in(output:length(FILE_NAME_MAX)alloc_if(1) free_if(1))											
+				#pragma offload target(mic:1) in(output:length(FILE_NAME_MAX)alloc_if(1) free_if(1)) signal(sig1)											
 					write_resultsOnMIC(output);
 			}
 			else
 			{
-				#pragma offload target(mic:2) in(output:length(FILE_NAME_MAX)alloc_if(1) free_if(1))											
+				#pragma offload target(mic:2) in(output:length(FILE_NAME_MAX)alloc_if(1) free_if(1)) signal(sig2)											
 					write_resultsOnMIC(output);
 			}	
 		}
@@ -312,6 +324,11 @@ int main(int argc, char **argv)
 
 	/*output mining results in every process*/ 
 	write_results(output, my_rank);  
+	
+	/* Synchronize asynchronous writing tasks */
+	#pragma offload_wait target(mic:0) if(mic_num>=1&&mic_thread!=0) wait(sig0)
+	#pragma offload_wait target(mic:1) if(mic_num>=2&&mic_thread!=0) wait(sig1)
+	#pragma offload_wait target(mic:2) if(mic_num>=3&&mic_thread!=0) wait(sig2)
   
 	if(my_rank==0)
 	{
